@@ -19,7 +19,7 @@ model User {
 
 model Rooms {
   id          Int     @id @default(autoincrement())
-  roomId      String
+  roomId      String  @unique
   maxPlayers  Int     @default(12)
   users       User[]
 }
