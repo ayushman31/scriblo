@@ -170,7 +170,7 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
                 message: "Error joining room"
             });
         }
-    }else if(action == "random"){
+    } else if (action === "random") {
         const rooms = await client.rooms.findMany({
             include: {
               users: true
@@ -208,9 +208,60 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
                 message: "Error joining room"
             });
         }
+    } else if (action === "leave") {
+        const userId = req.userId;
+
+        try {
+            const user = await client.user.findUnique({
+                where: {
+                    id: userId
+                }
+            });
+
+            if (!user || !user.roomId) {
+                res.status(400).json({
+                    message: "User is not in any room"
+                });
+                return;
+            }
+
+            const foundRoom = await client.rooms.findUnique({
+                where: {
+                    id: user.roomId
+                },
+                include: {
+                    users: true
+                }
+            });
+
+            await client.user.update({
+                where: {
+                    id: userId
+                },
+                data: {
+                    roomId: null
+                }
+            });
+
+            if(foundRoom?.users.length === 1){
+                await client.rooms.delete({
+                    where: {
+                        id: foundRoom.id
+                    }
+                });
+            }
+
+            res.json({
+                message: "Successfully left the room"
+            });
+        } catch (error) {
+            res.status(500).json({
+                message: "Error leaving room"
+            });
+        }
     } else {
         res.status(400).json({
-            message: "Invalid action. Use 'create' or 'join'"
+            message: "Invalid action. Use 'create', 'join', 'random', or 'leave'"
         });
     }
 });
