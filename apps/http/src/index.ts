@@ -5,6 +5,7 @@ import { UserSchema } from "@repo/common/types";
 import { client } from "@repo/db/client";
 import jwt from "jsonwebtoken";
 import {JWT_USER_PASSWORD} from "@repo/backend-common/config";
+// import { CustomRequest } from "@repo/backend-common/types";
 
 const app = express();
 app.use(express.json());
@@ -86,20 +87,18 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
     const { action, roomId } = req.body;
 
     if (action === "create") {
-        // Generate random room ID with letters and numbers
         const generatedRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
         
         try {
             const newRoom = await client.rooms.create({
                 data: {
                     roomId: generatedRoomId,
-                    maxPlayers: 12 // Default max players
                 }
             });
 
             await client.user.update({
                 where: {
-                    id: (req as any).userId
+                    id: req.userId
                 },
                 data: {
                     roomId: newRoom.id
@@ -148,7 +147,7 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
         }
 
         // Get user ID from middleware
-        const userId = (req as any).userId;
+        const userId = req.userId;
 
         try {
             await client.user.update({

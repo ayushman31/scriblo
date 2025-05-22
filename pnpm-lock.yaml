@@ -104,9 +104,15 @@ importers:
 
   packages/backend-common:
     dependencies:
+      '@types/express':
+        specifier: ^5.0.2
+        version: 5.0.2
       '@types/node':
         specifier: ^22.15.3
         version: 22.15.3
+      express:
+        specifier: ^5.1.0
+        version: 5.1.0
     devDependencies:
       '@repo/typescript-config':
         specifier: workspace:*
