@@ -5,7 +5,6 @@ import { UserSchema } from "@repo/common/types";
 import { client } from "@repo/db/client";
 import jwt from "jsonwebtoken";
 import {JWT_USER_PASSWORD} from "@repo/backend-common/config";
-// import { CustomRequest } from "@repo/backend-common/types";
 
 const app = express();
 app.use(express.json());
@@ -267,17 +266,64 @@ app.post("/room", middleware, async (req: Request, res: Response) => {
 });
 
 
-app.post("/room/:slug" , (req: Request, res: Response) => {
-    //dbcall
-    res.json({
-        message: "room"
-    })
+// TODO : Optimize this endpoint for the invitation feature
+app.post("/room/:roomId", middleware, async(req: Request, res: Response) => {
+    const {roomId} = req.params;
+    if (!roomId) {
+        res.status(400).json({
+            message: "Room ID is required to join"
+        });
+        return;
+    }
+
+    const foundRoom = await client.rooms.findFirst({
+        where: {
+            roomId: roomId
+        },
+        include: {
+            users: true
+        }
+    });
+
+    if (!foundRoom) {
+        res.status(404).json({
+            message: "Room not found"
+        });
+        return;
+    }
+
+    if (foundRoom.users.length >= foundRoom.maxPlayers) {
+        res.status(400).json({
+            message: "Room is full"
+        });
+        return;
+    }
+
+    // Get user ID from middleware
+    const userId = req.userId;
+
+    try {
+        await client.user.update({
+            where: {
+                id: userId
+            },
+            data: {
+                roomId: foundRoom.id
+            }
+        });
+
+        res.json({
+            message: "Successfully joined room",
+            roomId: foundRoom.roomId,
+            playersCount: foundRoom.users.length + 1,
+            maxPlayers: foundRoom.maxPlayers
+        });
+    } catch (error) {
+        res.status(500).json({
+            message: "Error joining room"
+        });
+    }
 });
-
-
-// app.post("/room/:roomId" , (req: Request, res: Response) => {
-
-// });
 
 app.listen(3000 , () => {
     console.log("http server listening on PORT 3000");
