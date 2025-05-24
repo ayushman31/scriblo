@@ -1,20 +1,23 @@
 import { WebSocket, WebSocketServer } from "ws";
+import { createClient } from "redis";
 import { checkUser } from "./checkUser";
 
 const wss = new WebSocketServer({ port: 8080 });
+const redis = createClient();
+
+redis.connect().catch(console.error);
 
 interface User {
     ws: WebSocket;
-    room: string;
     userId: string;
 }
 
-const users: User[] = [];
+const wsConnections = new Map<string, User>();
 
 wss.on("connection", (ws) => {
-    let userId : string | null = null;
+    let userId: string | null = null;
 
-    ws.on("message", (message) => {
+    ws.on("message", async (message) => {
         let data;
         try {
             data = JSON.parse(message.toString());
@@ -23,60 +26,52 @@ wss.on("connection", (ws) => {
             return;
         }
 
-        try{
-            if(data.type == "auth"){
+        try {
+            if (data.type === "auth") {
                 const token = data.token;
                 userId = checkUser(token);
 
-                if(!userId || typeof userId !== "string"){
+                if (!userId || typeof userId !== "string") {
                     ws.close();
                     return;
                 }
 
-                users.push({
-                    ws,
-                    room : "",
-                    userId : userId
-                });
+                wsConnections.set(userId, { ws, userId });
                 console.log("Authenticated: ", userId);
                 ws.send(JSON.stringify({ type: "success", message: "Authenticated" }));
-                console.log(users);
-                return
+                return;
             }
 
-            if(data.type == "join"){
-                if(!userId){
+            if (data.type === "join") {
+                if (!userId) {
                     ws.send(JSON.stringify({
-                        type : "error",
-                        message : "Not authenticated"
+                        type: "error",
+                        message: "Not authenticated"
                     }));
                     return;
                 }
 
                 const room = data.room;
-                const user = users.find(u => u.userId == userId);
-                if(user){
-                    user.room = room;
-                }
-                console.log(users);
+                // add user to room in redis
+                await redis.sAdd(`room:${room}`, userId);
+                console.log(`User ${userId} joined room ${room}`);
             }
 
-            if(data.type == "chat"){
-                if(!userId){
+            if (data.type === "chat") {
+                if (!userId) {
                     ws.send(JSON.stringify({
-                        type : "error",
-                        message : "Not authenticated"
+                        type: "error",
+                        message: "Not authenticated"
                     }));
                     return;
                 }
 
                 const room = data.room;
                 const message = data.message;
-                if (typeof room !== "string" || typeof message !== "string") return;
-
-                // Check if user is in the room they're trying to send a message to
-                const user = users.find(u => u.userId === userId);
-                if (!user || user.room !== room) {
+                
+                // check if user is in the room
+                const isInRoom = await redis.sIsMember(`room:${room}`, userId);
+                if (!isInRoom) {
                     ws.send(JSON.stringify({
                         type: "error",
                         message: "You must join the room before sending messages"
@@ -84,44 +79,51 @@ wss.on("connection", (ws) => {
                     return;
                 }
 
-                users.forEach(u => {
-                    if(u.room == room){
-                        u.ws.send(JSON.stringify({
-                            type : "chat",
-                            message : message,
-                            room
-                        }));
+                // get all users in the room
+                const roomUsers = await redis.sMembers(`room:${room}`);
+                
+                // send message to all users in the room
+                const messageData = JSON.stringify({
+                    type: "chat",
+                    message,
+                    room
+                });
+
+                roomUsers.forEach(userId => {
+                    const user = wsConnections.get(userId);
+                    if (user) {
+                        user.ws.send(messageData);
                     }
                 });
-                console.log(users);
-                
             }
 
-            if(data.type == "leave"){
-                if(!userId){
+            if (data.type === "leave") {
+                if (!userId) {
                     ws.send(JSON.stringify({
-                        type : "error",
-                        message : "Not authenticated"
+                        type: "error",
+                        message: "Not authenticated"
                     }));
                     return;
                 }
 
-                const user = users.find(u => u.userId == userId);
-                if(user){   
-                    user.room = "";
-                }
-                console.log(users);
+                const room = data.room;
+                await redis.sRem(`room:${room}`, userId);
+                console.log(`User ${userId} left room ${room}`);
             }
         } catch (err) {
+            console.error("Error processing message:", err);
             ws.send(JSON.stringify({ type: "error", message: "Internal server error" }));
-            return;
         }
     });
 
-    ws.on("close", () => {
-        const index = users.findIndex(u => u.ws === ws);
-        if (index !== -1) {
-            users.splice(index, 1);
+    ws.on("close", async () => {
+        if (userId) {
+            // remove user from all rooms
+            const rooms = await redis.keys("room:*");
+            for (const room of rooms) {
+                await redis.sRem(room, userId);
+            }
+            wsConnections.delete(userId);
         }
     });
 
