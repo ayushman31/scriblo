@@ -50,11 +50,14 @@ wss.on("connection", (ws) => {
                     }));
                     return;
                 }
+                console.log(userId , "joined room", data.room);
+                console.log(wsConnections);
 
                 const room = data.room;
                 // add user to room in redis
-                await redis.sAdd(`room:${room}`, userId);
                 console.log(`User ${userId} joined room ${room}`);
+                await redis.sAdd(`room:${room}`, userId);
+                ws.send(JSON.stringify({ type: "success", message: "Joined room" }));
             }
 
             if (data.type === "chat") {
@@ -68,6 +71,8 @@ wss.on("connection", (ws) => {
 
                 const room = data.room;
                 const message = data.message;
+                console.log(userId , "sent message to", room , "with message", message);
+                
                 
                 // check if user is in the room
                 const isInRoom = await redis.sIsMember(`room:${room}`, userId);
@@ -78,6 +83,8 @@ wss.on("connection", (ws) => {
                     }));
                     return;
                 }
+                console.log(isInRoom);
+                
 
                 // get all users in the room
                 const roomUsers = await redis.sMembers(`room:${room}`);
