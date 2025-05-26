@@ -1,30 +1,11 @@
 import { WebSocket, WebSocketServer } from "ws";
-import { createClient } from "redis";
+import { createClient, RedisClientType } from "redis";
 import { checkUser } from "./checkUser";
-
+import { cleanupStaleData } from "./cleanupStaleData";
+import { startHeartbeat } from "./startHeartbeat";
+import { HEARTBEAT_INTERVAL, CONNECTION_TIMEOUT } from "./constants";
 const wss = new WebSocketServer({ port: 8080 });
-const redis = createClient();
-
-// clean up stale data on startup
-async function cleanupStaleData() {
-    try {
-        const roomKeys = await redis.keys("room:*");
-        
-        // delete all the rooms if they exist already
-        if (roomKeys.length > 0) {
-            await redis.del(roomKeys);
-        }
-        
-        console.log("cleaned up stale room data on startup");
-    } catch (error) {
-        console.error("error cleaning up stale data:", error);
-    }
-}
-
-// connect to redis and cleaning the stale data
-redis.connect()
-    .then(cleanupStaleData)
-    .catch(console.error);
+const redis: RedisClientType<{}, {}> = createClient();
 
 interface User {
     ws: WebSocket;
@@ -34,27 +15,10 @@ interface User {
 
 const wsConnections = new Map<string, User>();
 
-// heartbeat interval and connection timeout
-const HEARTBEAT_INTERVAL = 30000;
-const CONNECTION_TIMEOUT = 60000; 
-
-function startHeartbeat(ws: WebSocket, userId: string) {
-    const interval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "ping" }));
-        } else {
-            clearInterval(interval);
-        }
-    }, HEARTBEAT_INTERVAL);
-
-    // store the interval id in the user object for cleanup
-    const user = wsConnections.get(userId);
-    if (user) {
-        user.lastSeen = Date.now();
-    }
-
-    return interval;
-}
+// connect to redis and clean up stale data
+redis.connect()
+    .then(() => cleanupStaleData(redis))
+    .catch(console.error);
 
 wss.on("connection", (ws) => {
     let userId: string | null = null;
@@ -79,21 +43,21 @@ wss.on("connection", (ws) => {
                     return;
                 }
 
-                // clean up any existing connection for this user
+                // clean up any existing connection
                 const existingUser = wsConnections.get(userId);
                 if (existingUser) {
                     existingUser.ws.close();
                 }
 
-                wsConnections.set(userId, { 
-                    ws, 
+                wsConnections.set(userId, {
+                    ws,
                     userId,
                     lastSeen: Date.now()
                 });
 
-                heartbeatInterval = startHeartbeat(ws, userId);
+                heartbeatInterval = startHeartbeat(ws, userId, wsConnections);
 
-                console.log("authenticated: ", userId);
+                console.log("authenticated:", userId);
                 ws.send(JSON.stringify({ type: "success", message: "authenticated" }));
                 return;
             }
@@ -111,37 +75,30 @@ wss.on("connection", (ws) => {
 
             if (data.type === "join") {
                 if (!userId) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        message: "not authenticated"
-                    }));
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
                 console.log(userId , "joined room", data.room);
                 console.log(wsConnections);
 
                 const room = data.room;
-                // add user to room in redis
-                console.log(`User ${userId} joined room ${room}`);
+                
                 await redis.sAdd(`room:${room}`, userId);
+                console.log(`User ${userId} joined room ${room}`);
                 ws.send(JSON.stringify({ type: "success", message: "joined room" }));
+                return;
             }
 
             if (data.type === "chat") {
                 if (!userId) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        message: "not authenticated"
-                    }));
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
 
                 const room = data.room;
-                const message = data.message;
-                console.log(userId , "sent message to", room , "with message", message);
-                
-                
-                // check if user is in the room
+                const messageText = data.message;
+                console.log(userId , "sent message", messageText, "to room", room);
+
                 const isInRoom = await redis.sIsMember(`room:${room}`, userId);
                 if (!isInRoom) {
                     ws.send(JSON.stringify({
@@ -150,39 +107,35 @@ wss.on("connection", (ws) => {
                     }));
                     return;
                 }
-                console.log(isInRoom);
-                
+                console.log("is in room: ", isInRoom);
 
-                // get all users in the room
                 const roomUsers = await redis.sMembers(`room:${room}`);
-                
-                // send message to all users in the room
                 const messageData = JSON.stringify({
                     type: "chat",
-                    message,
+                    message: messageText,
                     room
                 });
 
-                roomUsers.forEach(userId => {
-                    const user = wsConnections.get(userId);
+                roomUsers.forEach((id: string) => {
+                    const user = wsConnections.get(id);
                     if (user) {
                         user.ws.send(messageData);
                     }
                 });
+
+                return;
             }
 
             if (data.type === "leave") {
                 if (!userId) {
-                    ws.send(JSON.stringify({
-                        type: "error",
-                        message: "not authenticated"
-                    }));
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
 
                 const room = data.room;
                 await redis.sRem(`room:${room}`, userId);
                 console.log(`User ${userId} left room ${room}`);
+                return;
             }
         } catch (err) {
             console.error("error processing message:", err);
@@ -191,12 +144,10 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("close", async () => {
-        if (heartbeatInterval) {
-            clearInterval(heartbeatInterval);
-        }
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
 
         if (userId) {
-            // remove user from all rooms
+             // remove user from all rooms
             const rooms = await redis.keys("room:*");
             for (const room of rooms) {
                 await redis.sRem(room, userId);
@@ -205,11 +156,9 @@ wss.on("connection", (ws) => {
         }
     });
 
-    ws.on("error", (error) => {
-        console.error("websocket error:", error);
-        if (heartbeatInterval) {
-            clearInterval(heartbeatInterval);   
-        }
+    ws.on("error", (err) => {
+        console.error("websocket error:", err);
+        if (heartbeatInterval) clearInterval(heartbeatInterval);
     });
 });
 
