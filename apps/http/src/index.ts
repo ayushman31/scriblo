@@ -325,7 +325,7 @@ app.post("/room/:roomId", middleware, async(req: Request, res: Response) => {
     }
 });
 
-app.listen(3000 , () => {
-    console.log("http server listening on PORT 3000");
-    
+app.listen(3001 , () => {
+    console.log("http server listening on PORT 3001");
+
 });
