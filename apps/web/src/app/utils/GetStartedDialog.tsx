@@ -6,7 +6,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen }: { isOpen: boolean, setIs
     return (
         <Dialog open={isOpen} onOpenChange={setIsOpen}>
             <DialogTrigger asChild>
-                <Button variant="outline" className="bg-white text-gray-900 hover:bg-gray-100 border-gray-300 hover:text-gray-900 font-bold py-2 px-4 rounded dark:bg-gray-800 dark:text-white dark:hover:bg-gray-700 dark:border-gray-600">
+                <Button variant="outline" size="lg" >
                     Get Started
                 </Button>
             </DialogTrigger>
@@ -17,7 +17,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen }: { isOpen: boolean, setIs
                         <div className="space-y-4">
                             <Input type="text" placeholder="Enter your name" className="w-full h-10 rounded-md dark:bg-gray-100 dark:text-gray-700" />
                             <Input type="text" placeholder="Enter the Room Code (optional)" className="w-full h-10 rounded-md dark:bg-gray-100 dark:text-gray-700 uppercase placeholder:normal-case" />
-                            <Button className="w-full h-10 rounded-md bg-black hover:bg-gray-800 text-white dark:bg-gray-900 dark:hover:bg-gray-700" onClick={() => setIsOpen(false)}>
+                            <Button variant={"outline"} className="w-full" onClick={() => setIsOpen(false)}>
                                 Join Room
                             </Button>
                         </div>

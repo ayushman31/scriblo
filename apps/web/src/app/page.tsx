@@ -17,7 +17,7 @@ export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   return (
-    <div className={`${fredoka.className} flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 pb-20 gap-8 sm:gap-16 relative bg-white dark:bg-black`}>
+    <div className={`${fredoka.className} bg-grid flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 pb-20 gap-8 sm:gap-16 relative bg-white dark:bg-black`}>
       <div className="absolute top-4 right-4">
         <ModeToggle />
       </div>
