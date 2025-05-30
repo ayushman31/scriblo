@@ -1,55 +1,44 @@
 "use client";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
-import { Inter } from 'next/font/google';
-import Link from "next/link";
+import { Fredoka } from 'next/font/google';
+import Image from "next/image";
 import { useState } from "react";
+import { ModeToggle } from "./utils/toggle";
+import { GetStartedDialog } from "./utils/GetStartedDialog";
 
-const inter = Inter({ subsets: ['latin'] });
+
+const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
+
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+
   return (
-    <div className={`${inter.className} flex flex-col items-center justify-center min-h-screen p-8 pb-20 gap-16 sm:p-20`}>
-      <h1 className="text-8xl font-bold font-serif">Scriblo</h1>
-      <p className="text-2xl font-bold">A game of sketches and smarts.</p>
-      {isLoggedIn ? (
-      <Dialog open={isOpen} onOpenChange={setIsOpen}>
-        <DialogTrigger asChild>
-          <Button variant="outline">Get Started</Button>
-        </DialogTrigger>
-        <DialogContent className="max-w-md h-fit">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">Enter your login details</DialogTitle>
-            <DialogDescription>
-              <Input type="email" placeholder="Email" className="w-full mt-4 h-10 rounded-md" />
-              <Input type="password" placeholder="Password" className="w-full mt-4 h-10 rounded-md" />
-              <Button className="w-full mt-4 h-10 rounded-md" onClick={() => setIsOpen(false)}>Login</Button>
-              <p className="text-sm text-muted-foreground mt-4 text-center">Don't have an account? Sign up</p>
-            </DialogDescription>
-          </DialogHeader>
-        </DialogContent>
-        </Dialog>
-      ) : (
-        <Dialog open={isOpen} onOpenChange={setIsOpen}>
-          <DialogTrigger asChild>
-            <Button variant="outline">Get Started</Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-md h-fit">
-            <DialogHeader>
-              <DialogTitle className="text-2xl font-bold">Enter your login details</DialogTitle>
-              <DialogDescription>
-                <Input type="email" placeholder="Email" className="w-full mt-4 h-10 rounded-md" />
-                <Input type="password" placeholder="Password" className="w-full mt-4 h-10 rounded-md" />
-                <Button className="w-full mt-4 h-10 rounded-md" onClick={() => setIsOpen(false)}>Login</Button>
-                <p className="text-sm text-muted-foreground mt-4 text-center">Already have an account? Login</p>
-              </DialogDescription>
-            </DialogHeader>
-          </DialogContent>
-          </Dialog>
-        ) }
+    <div className={`${fredoka.className} flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 pb-20 gap-8 sm:gap-16 relative bg-white dark:bg-black`}>
+      <div className="absolute top-4 right-4">
+        <ModeToggle />
+      </div>
+      <div className="text-center z-10">
+        <h1 className="text-6xl sm:text-8xl font-bold text-gray-900 dark:text-white">Scriblo</h1>
+        <p className="text-xl sm:text-2xl font-semibold text-gray-700 dark:text-gray-300 mt-4">Unleash your creativity in a game of sketches and smarts!</p>
+      </div>
+
+      <div className="z-10">
+          <GetStartedDialog isOpen={isOpen} setIsOpen={setIsOpen} />
+      </div>
+
+
+
+      {/* images */}
+      <div className="absolute top-20 right-4 w-32 h-32 sm:w-[300px] sm:h-[300px]">
+        <Image src="/images/image1.png" alt="image" width={300} height={300} className="rounded-full bg-yellow-100 object-cover dark:invert dark:bg-transparent" />
+      </div>
+      <div className="absolute bottom-4 left-4 w-32 h-32 sm:w-[300px] sm:h-[300px]">
+        <Image src="/images/image2.png" alt="image" width={300} height={300} className="rounded-full bg-yellow-100 object-cover dark:invert dark:bg-transparent" />
+      </div>
     </div>
-    );
-  }
+  );
+}
