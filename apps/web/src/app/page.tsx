@@ -33,10 +33,10 @@ export default function Home() {
 
 
       {/* images */}
-      <div className="absolute top-20 right-4 w-32 h-32 sm:w-[300px] sm:h-[300px]">
+      <div className="absolute top-20 right-4 w-32 h-32 sm:w-[300px] sm:h-[300px] z-10">
         <Image src="/images/image1.png" alt="image" width={300} height={300} className="rounded-full bg-yellow-100 object-cover dark:invert dark:bg-transparent" />
       </div>
-      <div className="absolute bottom-4 left-4 w-32 h-32 sm:w-[300px] sm:h-[300px]">
+      <div className="absolute bottom-4 left-4 w-32 h-32 sm:w-[300px] sm:h-[300px] z-10">
         <Image src="/images/image2.png" alt="image" width={300} height={300} className="rounded-full bg-yellow-100 object-cover dark:invert dark:bg-transparent" />
       </div>
     </div>
