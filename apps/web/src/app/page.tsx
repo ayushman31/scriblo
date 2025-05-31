@@ -15,6 +15,7 @@ const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [hasRoomCode, setHasRoomCode] = useState(true);
 
   return (
     <div className={`${fredoka.className} bg-grid flex flex-col items-center justify-center min-h-screen p-4 sm:p-8 pb-20 gap-8 sm:gap-16 relative bg-white dark:bg-black`}>
@@ -27,7 +28,7 @@ export default function Home() {
       </div>
 
       <div className="z-10">
-          <GetStartedDialog isOpen={isOpen} setIsOpen={setIsOpen} />
+        <GetStartedDialog isOpen={isOpen} setIsOpen={setIsOpen} hasRoomCode={hasRoomCode} setHasRoomCode={setHasRoomCode} />
       </div>
 
 
