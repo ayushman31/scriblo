@@ -1,30 +1,26 @@
 import { ModeToggle } from "@/utils/toggle";
 import { Chat } from "@/components/ui/Chat";
+import { Members } from "@/components/ui/Members";
+import { getRandomWord } from "@/utils/random";
 
 export default async function RoomPage() {
     return (
         <div className="m-10 h-100vh">
-            <div className=" bg-gray-800 flex w-full justify-between items-center mb-10">
+            <div className="  flex w-full justify-between items-center mb-10">
                 <h1 className="text-6xl font-bold">Scriblo</h1>
                 <ModeToggle />
             </div>
 
-            <div className=" bg-gray-800 flex w-full justify-between items-center mb-10">
-                <div className="w-1/3">
-                    <h1 className="text-2xl font-bold">Rounds</h1>
-                </div>
-
-                <div className="w-1/3">
-                    <h1 className="text-2xl font-bold">Word</h1>
-                </div>
+            <div className=" flex w-full items-center justify-center mb-8">
+                    <h1 className="text-2xl font-bold border-2 border-gray-300 rounded-md p-2">{getRandomWord()}</h1>
             </div>
 
             <div className="w-full flex items-center justify-center">
                 <div className="w-1/5">
-                    <Chat />
+                    <Members />
                 </div>
 
-                <div className="w-3/5 bg-red-500">
+                <div className="w-3/5 border-1 border-gray-300 rounded-md">
                     <canvas id="canvas" className="w-full h-full mb-10"></canvas>
                     <div className="tools bg-yellow-500">
                         tools
