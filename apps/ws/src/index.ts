@@ -1,15 +1,15 @@
-import { WebSocket, WebSocketServer } from "ws";
+import {  WebSocketServer } from "ws";
 import { createClient, RedisClientType } from "redis";
-import { checkUser } from "./checkUser";
 import { cleanupStaleData } from "./cleanupStaleData";
 import { startHeartbeat } from "./startHeartbeat";
-import { HEARTBEAT_INTERVAL, CONNECTION_TIMEOUT } from "./constants";
+import { ExtendedWebSocket } from "./types/websocket";
+
 const wss = new WebSocketServer({ port: 8080 });
 const redis: RedisClientType<{}, {}> = createClient();
 
 interface User {
-    ws: WebSocket;
-    userId: string;
+    ws: ExtendedWebSocket;
+    username: string;
     lastSeen: number;
 }
 
@@ -20,10 +20,10 @@ redis.connect()
     .then(() => cleanupStaleData(redis))
     .catch(console.error);
 
-wss.on("connection", (ws) => {
-    let userId: string | null = null;
-    let heartbeatInterval: NodeJS.Timeout | null = null;
-
+wss.on("connection", (ws : ExtendedWebSocket) => {
+    let username: string | null = null;
+    startHeartbeat(ws);
+    
     ws.on("message", async (message) => {
         let data;
         try {
@@ -32,40 +32,36 @@ wss.on("connection", (ws) => {
             ws.send(JSON.stringify({ type: "error", message: "invalid JSON" }));
             return;
         }
+        
+        if (!data.type || typeof data.type !== 'string') {
+            ws.send(JSON.stringify({ type: "error", message: "invalid message type" }));
+            return;
+        }
+
+        if (data.username && typeof data.username !== 'string') {
+            ws.send(JSON.stringify({ type: "error", message: "invalid username" }));
+            return;
+        }
+
+        if (data.room && typeof data.room !== 'string') {
+            ws.send(JSON.stringify({ type: "error", message: "invalid room" }));
+            return;
+        }
+
+        if (data.message && typeof data.message !== 'string') {
+            ws.send(JSON.stringify({ type: "error", message: "invalid message" }));
+            return;
+        }
+        
+        username = data.username;
+        const room = data.room;
 
         try {
-            if (data.type === "auth") {
-                const token = data.token;
-                userId = checkUser(token);
-
-                if (!userId || typeof userId !== "string") {
-                    ws.close();
-                    return;
-                }
-
-                // clean up any existing connection
-                const existingUser = wsConnections.get(userId);
-                if (existingUser) {
-                    existingUser.ws.close();
-                }
-
-                wsConnections.set(userId, {
-                    ws,
-                    userId,
-                    lastSeen: Date.now()
-                });
-
-                heartbeatInterval = startHeartbeat(ws, userId, wsConnections);
-
-                console.log("authenticated:", userId);
-                ws.send(JSON.stringify({ type: "success", message: "authenticated" }));
-                return;
-            }
-
+            
             if (data.type === "pong") {
                 // update last seen timestamp
-                if (userId) {
-                    const user = wsConnections.get(userId);
+                if (username) {
+                    const user = wsConnections.get(username);
                     if (user) {
                         user.lastSeen = Date.now();
                     }
@@ -74,32 +70,52 @@ wss.on("connection", (ws) => {
             }
 
             if (data.type === "join") {
-                if (!userId) {
+                if (!username) {
                     ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
-                console.log(userId , "joined room", data.room);
+                console.log(username , "joined room", data.room);
                 console.log(wsConnections);
 
-                const room = data.room;
+
+                const roomKey = `room:${room}`;
+                const existingUsernames = await redis.sMembers(roomKey);
                 
-                await redis.sAdd(`room:${room}`, userId);
-                console.log(`User ${userId} joined room ${room}`);
+                if (existingUsernames.includes(username)) {
+                    ws.send(JSON.stringify({ type: "error", message: "Username already taken in this room" }));
+                    ws.close();
+                    return;
+                }
+
+                wsConnections.set(username, {
+                    ws,
+                    username,
+                    lastSeen: Date.now()
+                });
+                
+                try {
+                    await redis.sAdd(`room:${room}`, username);
+                } catch (err) {
+                    console.error("Redis error:", err);
+                    ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
+                    return;
+                }
+                console.log(`User ${username} joined room ${room}`);
                 ws.send(JSON.stringify({ type: "success", message: "joined room" }));
                 return;
             }
 
             if (data.type === "chat") {
-                if (!userId) {
+                if (!username || !wsConnections.has(username)) {
                     ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
 
                 const room = data.room;
                 const messageText = data.message;
-                console.log(userId , "sent message", messageText, "to room", room);
+                console.log(username , "sent message", messageText, "to room", room);
 
-                const isInRoom = await redis.sIsMember(`room:${room}`, userId);
+                const isInRoom = await redis.sIsMember(`room:${room}`, username);
                 if (!isInRoom) {
                     ws.send(JSON.stringify({
                         type: "error",
@@ -113,7 +129,8 @@ wss.on("connection", (ws) => {
                 const messageData = JSON.stringify({
                     type: "chat",
                     message: messageText,
-                    room
+                    room,
+                    username
                 });
 
                 roomUsers.forEach((id: string) => {
@@ -127,14 +144,14 @@ wss.on("connection", (ws) => {
             }
 
             if (data.type === "leave") {
-                if (!userId) {
+                if (!username) {
                     ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
 
                 const room = data.room;
-                await redis.sRem(`room:${room}`, userId);
-                console.log(`User ${userId} left room ${room}`);
+                await redis.sRem(`room:${room}`, username);
+                console.log(`User ${username} left room ${room}`);
                 return;
             }
         } catch (err) {
@@ -144,32 +161,20 @@ wss.on("connection", (ws) => {
     });
 
     ws.on("close", async () => {
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
 
-        if (userId) {
+        if (username) {
              // remove user from all rooms
             const rooms = await redis.keys("room:*");
             for (const room of rooms) {
-                await redis.sRem(room, userId);
+                await redis.sRem(room, username);
+                const remaining = await redis.sMembers(room);
+                if (remaining.length === 0) await redis.del(room);
             }
-            wsConnections.delete(userId);
+            wsConnections.delete(username);
         }
     });
 
     ws.on("error", (err) => {
         console.error("websocket error:", err);
-        if (heartbeatInterval) clearInterval(heartbeatInterval);
     });
 });
-
-// periodic cleanup of stale connections
-setInterval(() => {
-    const now = Date.now();
-    for (const [userId, user] of wsConnections.entries()) {
-        if (now - user.lastSeen > CONNECTION_TIMEOUT) {
-            console.log(`cleaning up stale connection for user ${userId}`);
-            user.ws.close();
-            wsConnections.delete(userId);
-        }
-    }
-}, HEARTBEAT_INTERVAL);

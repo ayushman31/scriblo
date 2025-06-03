@@ -1,29 +1,25 @@
 import { WebSocket } from "ws";
 import { HEARTBEAT_INTERVAL } from "./constants";
-interface User {
-    ws: WebSocket;
-    userId: string;
-    lastSeen: number;
-}
+import { ExtendedWebSocket } from "./types/websocket";  
 
-export function startHeartbeat(
-    ws: WebSocket,
-    userId: string,
-    wsConnections: Map<string, User>
-) {
+  
+export function startHeartbeat(ws: ExtendedWebSocket) {
+    ws.isAlive = true;
+
+    ws.on("pong", () => {
+        ws.isAlive = true;
+    });
 
     const interval = setInterval(() => {
-        if (ws.readyState === WebSocket.OPEN) {
-            ws.send(JSON.stringify({ type: "ping" }));
-        } else {
+        if (!ws.isAlive) {
+            ws.terminate();
             clearInterval(interval);
+        } else {
+            ws.isAlive = false;
+            ws.ping();
         }
     }, HEARTBEAT_INTERVAL);
 
-    const user = wsConnections.get(userId);
-    if (user) {
-        user.lastSeen = Date.now();
-    }
-
-    return interval;
+    ws.on("close", () => clearInterval(interval));
+    ws.on("error", () => clearInterval(interval));
 }
