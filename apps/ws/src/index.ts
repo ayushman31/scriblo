@@ -54,7 +54,7 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
         }
         
         username = data.username;
-        const room = data.room;
+        let room = data.room;
 
         try {
             
@@ -76,11 +76,22 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 }
                 console.log(username , "joined room", data.room);
                 console.log(wsConnections);
-
+               
+                if(!room) {
+                    const rooms = await redis.keys("room:*");
+                    if (rooms.length > 0) {
+                        const randomRoomIndex = Math.floor(Math.random() * rooms.length);
+                        room = rooms[randomRoomIndex]?.replace("room:", "");
+                        
+                    } else {
+                        ws.send(JSON.stringify({ type: "error", message: "no rooms available" }));
+                        return;
+                    }
+                }
 
                 const roomKey = `room:${room}`;
                 const existingUsernames = await redis.sMembers(roomKey);
-                
+                //TODO : we should already check if the username is already taken in this room if we are joining rooms randomly because it should not be like it searches a random room for you and then shows that username is already taken in this room.
                 if (existingUsernames.includes(username)) {
                     ws.send(JSON.stringify({ type: "error", message: "Username already taken in this room" }));
                     ws.close();
