@@ -1,9 +1,55 @@
+"use client";
+
 import { ModeToggle } from "@/utils/toggle";
 import { Chat } from "@/components/ui/Chat";
 import { Members } from "@/components/ui/Members";
 import { getRandomWord } from "@/utils/random";
+import { useParams, useSearchParams } from "next/navigation";
+import { useEffect } from "react";
 
 export default async function RoomPage() {
+
+    const {roomId} = useParams() as {roomId: string};
+    const username = useSearchParams().get("username");
+
+    useEffect(() => {
+        if (!username || !roomId) {
+            console.log("username or roomId is not found");
+            return;
+        }
+
+        const socket = new WebSocket(`ws://localhost:8080`);
+
+        socket.onopen = () => {
+            socket.send(JSON.stringify({
+                type: "join",
+                room: roomId,
+                username: username
+            }));
+        }
+
+        socket.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.type === "error") {
+                console.log(data.message);
+            }
+
+            if (data.type === "success") {
+                console.log("joined the room: ", data.message);
+            }
+        }
+
+        socket.onerror = (event) => {
+            console.log("error: ", event);
+        }
+
+        return () => {
+            socket.close();
+        }
+        
+    }, [roomId, username]);
+
     return (
         <div className="m-10 h-100vh">
             <div className="  flex w-full justify-between items-center mb-10">
