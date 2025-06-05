@@ -165,6 +165,18 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 console.log(`User ${username} left room ${room}`);
                 return;
             }
+
+            if (data.type === "getMembers") {
+                if (!username) {
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
+                    return;
+                }
+                
+                const room = data.room;
+                const members = await redis.sMembers(`room:${room}`);
+                ws.send(JSON.stringify({ type: "success", message: members }));
+                return;
+            }
         } catch (err) {
             console.error("error processing message:", err);
             ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
