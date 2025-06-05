@@ -74,8 +74,8 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
                     return;
                 }
-                console.log(username , "joined room", data.room);
-                console.log(wsConnections);
+                //console.log(username , "joined room", data.room);
+                //console.log(wsConnections);
                
                 if(!room) {
                     const rooms = await redis.keys("room:*");
@@ -111,7 +111,7 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
                     return;
                 }
-                console.log(`User ${username} joined room ${room}`);
+                //console.log(`User ${username} joined room ${room}`);
                 ws.send(JSON.stringify({ type: "success", message: "joined room" }));
                 return;
             }
@@ -124,7 +124,7 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
                 const room = data.room;
                 const messageText = data.message;
-                console.log(username , "sent message", messageText, "to room", room);
+                //console.log(username , "sent message", messageText, "to room", room);
 
                 const isInRoom = await redis.sIsMember(`room:${room}`, username);
                 if (!isInRoom) {
@@ -134,7 +134,7 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     }));
                     return;
                 }
-                console.log("is in room: ", isInRoom);
+                //console.log("is in room: ", isInRoom);
 
                 const roomUsers = await redis.sMembers(`room:${room}`);
                 const messageData = JSON.stringify({
@@ -162,7 +162,7 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
                 const room = data.room;
                 await redis.sRem(`room:${room}`, username);
-                console.log(`User ${username} left room ${room}`);
+                //console.log(`User ${username} left room ${room}`);
                 return;
             }
 
@@ -187,6 +187,8 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
         if (username) {
              // remove user from all rooms
+             //console.log("username: ", username, "'s connection closed");
+             
             const rooms = await redis.keys("room:*");
             for (const room of rooms) {
                 await redis.sRem(room, username);
