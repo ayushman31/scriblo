@@ -1,10 +1,10 @@
-"use client"
+"use client";
 
-import * as React from "react"
-import { useState, useRef, useEffect } from "react"
-import { ScrollArea } from "@/components/ui/scroll-area"
-import { Separator } from "@/components/ui/separator"
-import { Input } from "@/components/ui/input"
+import * as React from "react";
+import { useState, useRef, useEffect } from "react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Separator } from "@/components/ui/separator";
+import { Input } from "@/components/ui/input";
 
 interface Message {
   id: string;
@@ -12,31 +12,68 @@ interface Message {
   sender: string;
 }
 
-export function Chat() {
+interface ChatProps {
+  socket: WebSocket | null;
+  username: string | null;
+  roomId: string;
+}
+
+export function Chat({ socket, username, roomId }: ChatProps) {
   const [messages, setMessages] = useState<Message[]>([]);
   const [newMessage, setNewMessage] = useState("");
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMessage.trim()) return;
+    if (!newMessage.trim() || !socket || socket.readyState !== WebSocket.OPEN) return;
 
-    const message: Message = {
+    const outgoing = {
+      type: "chat",
+      room: roomId,
+      username,
+      message: newMessage,
+    };
+
+    socket.send(JSON.stringify(outgoing));
+
+    const localMessage: Message = {
       id: Date.now().toString(),
       text: newMessage,
       sender: "You",
     };
 
-    setMessages(prev => [...prev, message]);
+    setMessages((prev) => [...prev, localMessage]);
     setNewMessage("");
   };
 
   useEffect(() => {
-    if (scrollRef.current) {
-      const scrollContainer = scrollRef.current.querySelector('[data-slot="scroll-area-viewport"]');
-      if (scrollContainer) {
-        scrollContainer.scrollTop = scrollContainer.scrollHeight;
+    if (!socket) return;
+
+    const handleIncoming = (event: MessageEvent) => {
+      const data = JSON.parse(event.data);
+
+      if (data.type === "chat" && data.username !== username) {
+        const incoming: Message = {
+          id: Date.now().toString(),
+          text: data.message,
+          sender: data.username,
+        };
+
+        setMessages((prev) => [...prev, incoming]);
       }
+    };
+
+    socket.addEventListener("message", handleIncoming);
+
+    return () => {
+      socket.removeEventListener("message", handleIncoming);
+    };
+  }, [socket, username]);
+
+  useEffect(() => {
+    const scrollContainer = scrollRef.current?.querySelector('[data-slot="scroll-area-viewport"]');
+    if (scrollContainer) {
+      scrollContainer.scrollTop = scrollContainer.scrollHeight;
     }
   }, [messages]);
 

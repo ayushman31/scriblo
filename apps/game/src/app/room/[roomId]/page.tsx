@@ -43,7 +43,7 @@ export default function RoomPage() {
         </div>
 
         <div className="w-1/5">
-          <Chat />
+          <Chat socket={socket} username={username} roomId={roomId} />
         </div>
       </div>
     </div>
