@@ -8,6 +8,8 @@ A real-time multiplayer drawing and guessing game where users can create or join
 
 🔗 **[Play Scriblo Now](link will be updated here, once deployed.)** 
 
+![image](https://github.com/user-attachments/assets/75954420-9401-4c13-b148-6299b32ebfc8)
+
 
 
 ## ✨ Features
