@@ -12,7 +12,8 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const { theme } = useTheme();
-  const { color, brushSize, clearCanvas, addDrawingAction } = useCanvas();
+  const { color, brushSize, clearCanvas, addDrawingAction, drawingActions, socket, addRemoteDrawingAction, clearDrawingActions } = useCanvas();
+  const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
 
   // Set canvas dimensions to match its display size
   useEffect(() => {
@@ -48,8 +49,10 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
 
     if (clearCanvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
+      clearDrawingActions();
+      setLastProcessedIndex(0);
     }
-  }, [color, brushSize, clearCanvas]);
+  }, [color, brushSize, clearCanvas, clearDrawingActions]);
 
   // Set background color after mount (avoids hydration error)
   useEffect(() => {
@@ -58,6 +61,58 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
 
     canvas.style.backgroundColor = theme === 'dark' ? 'var(--card)' : 'var(--background)';
   }, [theme]);
+
+  // Listen for remote drawing actions via websocket
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleWebSocketMessage = (event: MessageEvent) => {
+      try {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === "draw" && data.drawingAction) {
+          addRemoteDrawingAction(data.drawingAction);
+        }
+      } catch (error) {
+        console.error("Error parsing websocket message:", error);
+      }
+    };
+
+    socket.addEventListener("message", handleWebSocketMessage);
+
+    return () => {
+      socket.removeEventListener("message", handleWebSocketMessage);
+    };
+  }, [socket, addRemoteDrawingAction]);
+
+  // Process drawing actions (both local and remote)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+
+    // Process new drawing actions
+    for (let i = lastProcessedIndex; i < drawingActions.length; i++) {
+      const action = drawingActions[i];
+      
+      ctx.strokeStyle = action.color;
+      ctx.lineWidth = action.brushSize;
+      ctx.lineCap = 'round';
+      ctx.lineJoin = 'round';
+
+      if (action.type === 'start') {
+        ctx.beginPath();
+        ctx.moveTo(action.x, action.y);
+      } else if (action.type === 'draw') {
+        ctx.lineTo(action.x, action.y);
+        ctx.stroke();
+      }
+    }
+
+    setLastProcessedIndex(drawingActions.length);
+  }, [drawingActions, lastProcessedIndex]);
 
   const getMousePosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;

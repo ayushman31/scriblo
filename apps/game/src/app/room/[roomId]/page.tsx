@@ -8,6 +8,19 @@ import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRoomSocket } from "@/hooks/useRoomSocket";
 import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
+import { useCanvas } from '@/components/canvas/CanvasContext';
+
+const ConnectedCanvas = ({ socket, roomId, username }: { socket: WebSocket | null, roomId: string, username: string | null }) => {
+  const { setSocket, setRoomId, setUsername } = useCanvas();
+
+  useEffect(() => {
+    setSocket(socket);
+    setRoomId(roomId);
+    setUsername(username);
+  }, [socket, roomId, username, setSocket, setRoomId, setUsername]);
+
+  return <Canvas className="w-full h-full mb-10" />;
+};
 
 export default function RoomPage() {
   const { roomId } = useParams() as { roomId: string };
@@ -40,7 +53,7 @@ export default function RoomPage() {
 
         <div className="w-3/5 rounded-md">
           <CanvasProvider>
-            <Canvas className="w-full h-full mb-10"/>
+            <ConnectedCanvas socket={socket} roomId={roomId} username={username} />
             <div className="tools bg-yellow-500"><CanvasControls /></div>
           </CanvasProvider>
         </div>
