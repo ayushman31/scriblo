@@ -177,6 +177,45 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 ws.send(JSON.stringify({ type: "success", message: members }));
                 return;
             }
+
+            if (data.type === "draw") {
+                if (!username || !wsConnections.has(username)) {
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
+                    return;
+                }
+
+                const room = data.room;
+                const drawingAction = data.drawingAction;
+
+                const isInRoom = await redis.sIsMember(`room:${room}`, username);
+                if (!isInRoom) {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "you must join the room before drawing"
+                    }));
+                    return;
+                }
+
+                const roomUsers = await redis.sMembers(`room:${room}`);
+                const drawingData = JSON.stringify({
+                    type: "draw",
+                    drawingAction,
+                    room,
+                    username
+                });
+
+                // Send drawing action to all users in the room except the sender
+                roomUsers.forEach((id: string) => {
+                    if (id !== username) {
+                        const user = wsConnections.get(id);
+                        if (user) {
+                            user.ws.send(drawingData);
+                        }
+                    }
+                });
+
+                return;
+            }
         } catch (err) {
             console.error("error processing message:", err);
             ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
