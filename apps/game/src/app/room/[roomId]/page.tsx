@@ -7,6 +7,7 @@ import { getRandomWord } from "@/utils/random";
 import { useParams, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { useRoomSocket } from "@/hooks/useRoomSocket";
+import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
 
 export default function RoomPage() {
   const { roomId } = useParams() as { roomId: string };
@@ -37,10 +38,16 @@ export default function RoomPage() {
           {socket && isConnected && <Members members={members} />}
         </div>
 
-        <div className="w-3/5 border-1 border-gray-300 rounded-md">
-          <canvas id="canvas" className="w-full h-full mb-10"></canvas>
-          <div className="tools bg-yellow-500">tools</div>
+        <div className="w-3/5 rounded-md">
+          <CanvasProvider>
+            <Canvas className="w-full h-full mb-10"/>
+            <div className="tools bg-yellow-500"><CanvasControls /></div>
+          </CanvasProvider>
         </div>
+        {/* <div className="w-3/5 border-1 border-gray-300 rounded-md">
+          <canvas id="canvas" className="w-full h-full mb-10"></canvas>
+          <div className="tools bg-yellow-500"><CanvasControls /></div>
+        </div> */}
 
         <div className="w-1/5">
           <Chat socket={socket} username={username} roomId={roomId} />
