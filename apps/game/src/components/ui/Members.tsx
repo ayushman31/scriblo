@@ -9,7 +9,7 @@ interface MembersProps {
 export const Members = ({ members }: MembersProps) => {
   return (
     <div className="flex flex-col mx-5">
-    <ScrollArea className="h-[500px]  rounded-md border">
+    <ScrollArea className="h-[400px]  rounded-md border">
       <div className="p-4">
         {members.map((member, index) => (
           <React.Fragment key={index}>

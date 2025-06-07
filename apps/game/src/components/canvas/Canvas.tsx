@@ -1,3 +1,5 @@
+'use client'
+
 import React, { useEffect, useRef, useState } from 'react';
 import { useCanvas } from '@/components/canvas/CanvasContext';
 import { useTheme } from 'next-themes';
@@ -6,18 +8,11 @@ interface CanvasProps {
   className?: string;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ 
-  className = ''
-}) => {
+export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const { theme } = useTheme();
-  const { 
-    color, 
-    brushSize, 
-    clearCanvas,
-    addDrawingAction 
-  } = useCanvas();
+  const { color, brushSize, clearCanvas, addDrawingAction } = useCanvas();
 
   // Set canvas dimensions to match its display size
   useEffect(() => {
@@ -30,17 +25,15 @@ export const Canvas: React.FC<CanvasProps> = ({
       canvas.height = rect.height;
     };
 
-    // Initial size update
     updateCanvasSize();
 
-    // Create a ResizeObserver to watch for size changes
     const resizeObserver = new ResizeObserver(updateCanvasSize);
     resizeObserver.observe(canvas);
 
     return () => resizeObserver.disconnect();
   }, []);
 
-  // Update canvas properties when color, brush size, or theme changes
+  // Update canvas properties when color, brush size, or clearCanvas changes
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -53,11 +46,18 @@ export const Canvas: React.FC<CanvasProps> = ({
     ctx.strokeStyle = color;
     ctx.lineWidth = brushSize;
 
-    // Clear canvas when clearCanvas is called
     if (clearCanvas) {
       ctx.clearRect(0, 0, canvas.width, canvas.height);
     }
-  }, [color, brushSize, clearCanvas, theme]);
+  }, [color, brushSize, clearCanvas]);
+
+  // Set background color after mount (avoids hydration error)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
+
+    canvas.style.backgroundColor = theme === 'dark' ? 'var(--card)' : 'var(--background)';
+  }, [theme]);
 
   const getMousePosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -83,14 +83,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     ctx.moveTo(x, y);
     setIsDrawing(true);
 
-    // Record the start point for the drawing action
-    addDrawingAction({
-      type: 'start',
-      x,
-      y,
-      color,
-      brushSize
-    });
+    addDrawingAction({ type: 'start', x, y, color, brushSize });
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -107,14 +100,7 @@ export const Canvas: React.FC<CanvasProps> = ({
     ctx.lineTo(x, y);
     ctx.stroke();
 
-    // Record the drawing point
-    addDrawingAction({
-      type: 'draw',
-      x,
-      y,
-      color,
-      brushSize
-    });
+    addDrawingAction({ type: 'draw', x, y, color, brushSize });
   };
 
   const stopDrawing = () => {
@@ -132,8 +118,8 @@ export const Canvas: React.FC<CanvasProps> = ({
       style={{
         border: '1px solid var(--border)',
         borderRadius: '4px',
-        cursor: 'crosshair',
-        backgroundColor: theme === 'dark' ? 'var(--card)' : 'var(--background)'
+        cursor: 'crosshair'
+        // backgroundColor moved to useEffect
       }}
     />
   );
