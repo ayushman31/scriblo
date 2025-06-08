@@ -49,7 +49,7 @@ export const CanvasControls: React.FC = () => {
   const currentColorLabel = selectedColor ? selectedColor.label : 'Custom';
 
   return (
-    <div className="flex items-center gap-2 p-2 bg-card rounded-lg border">
+    <div className="flex items-center justify-between  p-2 bg-card rounded-lg border">
       {/* Color Picker Popover */}
       <Popover open={colorOpen} onOpenChange={setColorOpen}>
         <PopoverTrigger asChild>

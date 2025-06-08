@@ -9,6 +9,9 @@ import { useEffect, useState } from "react";
 import { useRoomSocket } from "@/hooks/useRoomSocket";
 import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
 import { useCanvas } from '@/components/canvas/CanvasContext';
+import { Fredoka } from 'next/font/google';
+
+const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
 
 const ConnectedCanvas = ({ socket, roomId, username }: { socket: WebSocket | null, roomId: string, username: string | null }) => {
   const { setSocket, setRoomId, setUsername } = useCanvas();
@@ -36,7 +39,7 @@ export default function RoomPage() {
   }, [username, roomId]);
 
   return (
-    <div className="m-10 h-100vh">
+    <div className={`${fredoka.className} m-10 h-100vh`}>
       <div className="flex w-full justify-between items-center mb-10">
         <h1 className="text-6xl font-bold">Scriblo</h1>
         <ModeToggle />
@@ -54,7 +57,7 @@ export default function RoomPage() {
         <div className="w-3/5 rounded-md">
           <CanvasProvider>
             <ConnectedCanvas socket={socket} roomId={roomId} username={username} />
-            <div className="tools bg-yellow-500"><CanvasControls /></div>
+            <div><CanvasControls /></div>
           </CanvasProvider>
         </div>
         
