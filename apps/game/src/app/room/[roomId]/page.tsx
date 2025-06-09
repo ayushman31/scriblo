@@ -3,9 +3,8 @@
 import { ModeToggle } from "@/utils/toggle";
 import { Chat } from "@/components/ui/Chat";
 import { Members } from "@/components/ui/Members";
-import { getRandomWord } from "@/utils/random";
 import { useParams, useSearchParams } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { useRoomSocket } from "@/hooks/useRoomSocket";
 import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
 import { useCanvas } from '@/components/canvas/CanvasContext';
@@ -28,15 +27,15 @@ const ConnectedCanvas = ({ socket, roomId, username }: { socket: WebSocket | nul
 export default function RoomPage() {
   const { roomId } = useParams() as { roomId: string };
   const username = useSearchParams().get("username");
-  const [word, setWord] = useState("");
+  // const [word, setWord] = useState("");
 
-  const { socket, isConnected, members } = useRoomSocket(roomId, username);
+  const { socket, isConnected, members, word } = useRoomSocket(roomId, username);
 
-  useEffect(() => {
-    if (username && roomId) {
-      setWord(getRandomWord());
-    }
-  }, [username, roomId]);
+  // useEffect(() => {
+  //   if (username && roomId) {
+  //     setWord(getRandomWord());
+  //   }
+  // }, [username, roomId]);
 
   return (
     <div className={`${fredoka.className} m-10 h-100vh`}>
@@ -45,6 +44,9 @@ export default function RoomPage() {
         <ModeToggle />
       </div>
 
+      {/* <div className="flex w-full items-center justify-center mb-8">
+        <h1 className="text-2xl font-bold border-2 border-gray-300 rounded-md p-2">{word}</h1>
+      </div> */}
       <div className="flex w-full items-center justify-center mb-8">
         <h1 className="text-2xl font-bold border-2 border-gray-300 rounded-md p-2">{word}</h1>
       </div>

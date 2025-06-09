@@ -10,15 +10,21 @@ export function useRoomSocket(roomId: string, username: string | null) {
   const [socket, setSocket] = useState<WebSocket | null>(null);
   const [isConnected, setIsConnected] = useState(false);
   const [members, setMembers] = useState<string[]>([]);
-
+  const [word, setWord] = useState<string>("");
   useEffect(() => {
     if (!roomId || !username) return;
 
     const ws = new WebSocket(`ws://localhost:8080`);
 
+    const requestWord = () => {
+      ws.send(JSON.stringify({ type: "getWord", room: roomId, username }));
+    };
+
     ws.onopen = () => {
       setIsConnected(true);
       ws.send(JSON.stringify({ type: "join", room: roomId, username }));
+      //  request word when joining (server will return existing word for the room)
+      requestWord();
     };
 
     const requestMembers = () => {
@@ -31,9 +37,11 @@ export function useRoomSocket(roomId: string, username: string | null) {
 
         if (data.type === "error") {
           console.error("WebSocket error:", data.error || data.message);
-        } else if (data.type === "success") {
+        } else if (data.type === "success" || data.type === "word") {
           if (Array.isArray(data.message)) {
             setMembers(data.message);
+          }else if(data.type === "word"){
+            setWord(data.message);
           } else {
             requestMembers();       //if new member joined fetch again
           }
@@ -65,5 +73,5 @@ export function useRoomSocket(roomId: string, username: string | null) {
     };
   }, [roomId, username]);
 
-  return { socket, isConnected, members };
+  return { socket, isConnected, members, word };
 }
