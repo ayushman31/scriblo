@@ -3,6 +3,7 @@ import { createClient, RedisClientType } from "redis";
 import { cleanupStaleData } from "./cleanupStaleData";
 import { startHeartbeat } from "./startHeartbeat";
 import { ExtendedWebSocket } from "./types/websocket";
+import { getRandomWord } from "./getRandomWord";
 
 const wss = new WebSocketServer({ port: 8080 });
 const redis: RedisClientType<{}, {}> = createClient();
@@ -162,7 +163,16 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
                 const room = data.room;
                 await redis.sRem(`room:${room}`, username);
-                //console.log(`User ${username} left room ${room}`);
+                
+                // check if room is empty after user leaves
+                const remaining = await redis.sMembers(`room:${room}`);
+                if (remaining.length === 0) {
+                    await redis.del(`room:${room}`);
+                    // also delete the word associated with this room
+                    await redis.del(`room:${room}:word`);
+                }
+                
+                // console.log(`User ${username} left room ${room}`);
                 return;
             }
 
@@ -216,6 +226,39 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
                 return;
             }
+
+            if (data.type === "getWord") {
+                if (!username) {
+                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
+                    return;
+                }
+                const room = data.room;
+                if (!room) {
+                    ws.send(JSON.stringify({ type: "error", message: "room not found" }));
+                    return;
+                }
+                
+                // Check if a word already exists for this room
+                const existingWord = await redis.get(`room:${room}:word`);
+                let word;
+                
+                if (existingWord) {
+                    // Use existing word
+                    word = existingWord;
+                } else {
+                    // Generate new word only if none exists
+                    word = getRandomWord();
+                    if (!word) {
+                        ws.send(JSON.stringify({ type: "error", message: "failed to get a word" }));
+                        return;
+                    }
+                    await redis.set(`room:${room}:word`, word);
+                }
+                
+                console.log(`room:${room}:word`, word);
+                ws.send(JSON.stringify({ type: "word", message: word }));
+                return;
+            }
         } catch (err) {
             console.error("error processing message:", err);
             ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
@@ -230,9 +273,17 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
              
             const rooms = await redis.keys("room:*");
             for (const room of rooms) {
+                // Skip word keys as they are not room member sets
+                if (room.includes(":word")) continue;
+                
                 await redis.sRem(room, username);
                 const remaining = await redis.sMembers(room);
-                if (remaining.length === 0) await redis.del(room);
+                if (remaining.length === 0) {
+                    await redis.del(room);
+                    // Also delete the word associated with this room
+                    const roomId = room.replace("room:", "");
+                    await redis.del(`room:${roomId}:word`);
+                }
             }
             wsConnections.delete(username);
         }

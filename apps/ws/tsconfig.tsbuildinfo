@@ -1,1 +1,1 @@
-{"root":["./src/cleanupstaledata.ts","./src/constants.ts","./src/index.ts","./src/startheartbeat.ts","./src/types/websocket.ts","./src/v2/checkuser.ts","./src/v2/index.ts","./src/v2/startheartbeat.ts"],"version":"5.8.2"}
+{"root":["./src/cleanupstaledata.ts","./src/constants.ts","./src/getrandomword.ts","./src/index.ts","./src/startheartbeat.ts","./src/types/websocket.ts","./src/v2/checkuser.ts","./src/v2/index.ts","./src/v2/startheartbeat.ts"],"version":"5.8.2"}
