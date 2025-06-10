@@ -28,6 +28,12 @@ export interface GameState {
     gameStarted: boolean;
 }
 
+export interface GuessResult {
+    username: string;
+    guess: string;
+    isCorrect: boolean;
+    points?: number;
+}
 
 
 
