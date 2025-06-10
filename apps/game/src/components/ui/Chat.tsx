@@ -10,6 +10,7 @@ interface Message {
   id: string;
   text: string;
   sender: string;
+  isCorrectGuess?: boolean;
 }
 
 interface ChatProps {
@@ -35,14 +36,6 @@ export function Chat({ socket, username, roomId }: ChatProps) {
     };
 
     socket.send(JSON.stringify(outgoing));
-
-    const localMessage: Message = {
-      id: Date.now().toString(),
-      text: newMessage,
-      sender: "You",
-    };
-
-    setMessages((prev) => [...prev, localMessage]);
     setNewMessage("");
   };
 
@@ -52,11 +45,12 @@ export function Chat({ socket, username, roomId }: ChatProps) {
     const handleIncoming = (event: MessageEvent) => {
       const data = JSON.parse(event.data);
 
-      if (data.type === "chat" && data.username !== username) {
+      if (data.type === "chat") {
         const incoming: Message = {
           id: Date.now().toString(),
           text: data.message,
-          sender: data.username,
+          sender: data.username === username ? "You" : data.username,
+          isCorrectGuess: data.isCorrectGuess || false,
         };
 
         setMessages((prev) => [...prev, incoming]);
@@ -82,9 +76,10 @@ export function Chat({ socket, username, roomId }: ChatProps) {
       <ScrollArea className="h-[450px] w-full rounded-md border" ref={scrollRef}>
         <div className="p-4 space-y-4">
           {messages.map((message) => (
-            <div key={message.id} className="flex flex-col">
+            <div key={message.id} className={`flex flex-col ${message.isCorrectGuess ? ' rounded' : ''}`}>
               <div className="flex items-center gap-2">
                 <span className="font-semibold text-sm">{message.sender}</span>
+                {message.isCorrectGuess && <span className="text-xs text-green-600 font-bold">CORRECT!</span>}
               </div>
               <p className="text-sm">{message.text}</p>
               <Separator className="my-2" />

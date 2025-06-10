@@ -5,15 +5,15 @@ import { RedisClientType } from "redis";
 export class GameManager {
 
     private games = new Map<string, GameState>();
-    private redis : RedisClientType;
+    private redis : RedisClientType<{}, {}>;
     private timers = new Map<string, NodeJS.Timeout>();
 
 
-    constructor(redis: RedisClientType) {
+    constructor(redis: RedisClientType<{}, {}>) {
         this.redis = redis;
     }
 
-    async createGame(roomId: string): Promise<GameState> {
+    async createOrGetGame(roomId: string): Promise<GameState> {
         if(this.games.has(roomId)){
             return this.games.get(roomId)!;
         }
@@ -21,14 +21,14 @@ export class GameManager {
         const gameState: GameState = {
             roomId,
             players: new Map(),
-            currentWord: null,
             currentDrawer: null,
+            currentWord: null,
             wordOptions: null,
             gamePhase: GamePhase.WAITING,
             round: 0,
             maxRounds: 3,
             roundTimeLeft: 0,
-            maxRoundTime: 60,
+            maxRoundTime: 80,
             correctGuessors: [],
             gameStarted: false,
         }
@@ -37,8 +37,8 @@ export class GameManager {
         return gameState;
     }
 
-    async addPlayer(roomId:string, username: string) : Promise<GameState>{
-        const game = await this.createGame(roomId);
+    async addPlayer(roomId: string, username: string) : Promise<GameState>{
+        const game = await this.createOrGetGame(roomId);
 
         if(!game.players.has(username)){
             game.players.set(username, {
@@ -59,7 +59,7 @@ export class GameManager {
         return game;
     }
 
-    async removePlayer(roomId:string, username: string) : Promise<GameState | null>{
+    async removePlayer(roomId: string, username: string) : Promise<GameState | null>{
         const game = this.games.get(roomId);
         if(!game){
             return null;
@@ -99,7 +99,7 @@ export class GameManager {
         //we will select a random drawer
         const players = Array.from(game.players.keys()).filter(p => game.players.get(p)?.isConnected);
         
-        game.currentDrawer = players[Math.floor(Math.random() * players.length)] || null;
+        game.currentDrawer = players[0] || null;
 
         this.startWordSelection(roomId);
     }
@@ -115,13 +115,17 @@ export class GameManager {
         game.roundTimeLeft = 15;
 
         game.correctGuessors = []; //clearing the previous correct guessors
+        game.currentWord = null; // Clear the current word from previous round
         game.players.forEach(player => {
             player.hasGuessed = false;
         });
 
-        this.startRoundTimer(roomId, 15, () => {
+        // Clear previous word from Redis
+        await this.redis.del(`room:${roomId}:word`);
+
+        this.startTimer(roomId, 15, () => {
             if(game.wordOptions){
-                this.selectWord(roomId, game.currentDrawer!, game.wordOptions[Math.floor(Math.random() * game.wordOptions.length)]!);
+                this.selectWord(roomId, game.currentDrawer!, game.wordOptions[0]!);
             }
         });
 
@@ -142,9 +146,9 @@ export class GameManager {
         game.gamePhase = GamePhase.DRAWING;
         game.roundTimeLeft = game.maxRoundTime;
         
-        await this.redis.set(`game:${roomId}:word`, word);
-        this.clearRoundTimer(roomId);
-        this.startRoundTimer(roomId, game.maxRoundTime, () => {
+        await this.redis.set(`room:${roomId}:word`, word);
+        this.clearTimer(roomId);
+        this.startTimer(roomId, game.maxRoundTime, () => {
             this.nextRound(roomId);
         });
 
@@ -153,16 +157,16 @@ export class GameManager {
 
     async processGuess(roomId: string, username: string, guess: string) : Promise<GuessResult> {
         const game = this.games.get(roomId);
-        if(!game || game.currentDrawer !== username || game.gamePhase !== GamePhase.DRAWING || !game.currentWord){
+        if(!game || game.currentDrawer === username || game.gamePhase !== GamePhase.DRAWING || !game.currentWord){
             return {username, guess, isCorrect: false};
         }
 
         const player = game.players.get(username);
-        if(!player || !player.hasGuessed){
+        if(!player || player.hasGuessed){
             return {username, guess, isCorrect: false};
         }
 
-        const isCorrect = guess.toLowerCase() === game.currentWord.toLowerCase().trim();
+        const isCorrect = guess.toLowerCase().trim() === game.currentWord.toLowerCase().trim();
 
         if(isCorrect){
             player.hasGuessed = true;
@@ -203,7 +207,7 @@ export class GameManager {
             return;
         }
 
-        this.clearRoundTimer(roomId);
+        this.clearTimer(roomId);
         if(game.round >= game.maxRounds){
             this.endGame(roomId);
             return;
@@ -213,18 +217,20 @@ export class GameManager {
         const connectedPlayers = Array.from(game.players.keys()).filter(username => game.players.get(username)?.isConnected);
 
         const currentDrawer = connectedPlayers.indexOf(game.currentDrawer!);
-
         const nextDrawer = (currentDrawer + 1) % connectedPlayers.length;
 
+        // If we've gone through all players, increment round
         if(nextDrawer === 0){
             game.round++;
         }
 
-        game.currentDrawer = connectedPlayers[nextDrawer]!;
-        game.currentWord = null;
-
+        game.currentDrawer = connectedPlayers[nextDrawer] || null;
+        
         game.gamePhase = GamePhase.ROUND_END;
         setTimeout(() => {
+            // Clear the word after round end display
+            game.currentWord = null;
+            
             if(game.round <= game.maxRounds){
                 this.startWordSelection(roomId);
             }else{
@@ -240,20 +246,48 @@ export class GameManager {
         }
 
         game.gamePhase = GamePhase.GAME_END;
-        this.clearRoundTimer(roomId);
+        this.clearTimer(roomId);
 
-        //clear the game round
+        // Show final results for 10 seconds, then restart the game
         setTimeout(() => {
-            this.games.delete(roomId);
-        }, 30000);
+            this.restartGame(roomId);
+        }, 10000);
     }
 
-    private startRoundTimer(roomId: string, seconds: number, onComplete: () => void): void {
-        this.clearRoundTimer(roomId);
+    private restartGame(roomId: string): void {
+        const game = this.games.get(roomId);
+        if(!game) return;
+
+        // Reset game state for new game
+        game.round = 0;
+        game.gameStarted = false;
+        game.gamePhase = GamePhase.WAITING;
+        game.currentDrawer = null;
+        game.currentWord = null;
+        game.wordOptions = null;
+        game.correctGuessors = [];
+        game.roundTimeLeft = 0;
+
+        // Reset all player scores and states
+        game.players.forEach(player => {
+            player.score = 0;
+            player.hasGuessed = false;
+        });
+
+        // Check if we still have enough players to restart
+        const connectedPlayers = Array.from(game.players.values()).filter(p => p.isConnected);
+        if (connectedPlayers.length >= 2) {
+            // Restart the game
+            this.startGame(roomId);
+        }
+    }
+
+    private startTimer(roomId: string, seconds: number, onComplete: () => void): void {
+        this.clearTimer(roomId);
 
         const timer = setInterval(() => {
             const game = this.games.get(roomId);
-            if(!game || game.gamePhase !== GamePhase.DRAWING){
+            if(!game){
                 clearInterval(timer);
                 return;
             }
@@ -269,7 +303,7 @@ export class GameManager {
         this.timers.set(roomId, timer);
     }
 
-    private clearRoundTimer(roomId: string): void {
+    private clearTimer(roomId: string): void {
         const timer = this.timers.get(roomId);
         if(timer){
             clearInterval(timer);
@@ -283,7 +317,7 @@ export class GameManager {
 
     isPlayerDrawer(roomId: string, username: string): boolean {
         const game = this.games.get(roomId);
-        return game?.currentDrawer === username && game?.gamePhase === GamePhase.DRAWING;
+        return game?.currentDrawer === username;
     }
 
     getWordForPlayer(roomId: string, username: string): string | null {
@@ -303,6 +337,19 @@ export class GameManager {
         }
 
         return null;
+    }
+
+    canPlayerDraw(roomId: string, username: string): boolean {
+        const game = this.games.get(roomId);
+        return game?.currentDrawer === username && game?.gamePhase === GamePhase.DRAWING;
+    }
+
+    getWordOptions(roomId: string, username: string): string[] | null {
+        const game = this.games.get(roomId);
+        if (!game || game.currentDrawer !== username || game.gamePhase !== GamePhase.WORD_SELECTION) {
+            return null;
+        }
+        return game.wordOptions;
     }
 
 }

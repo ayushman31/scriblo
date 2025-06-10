@@ -1,4 +1,5 @@
-import { useEffect, useState } from "react";
+import { GameState } from "@/types/types";
+import { useEffect, useState, useCallback } from "react";
 
 type WebSocketMessage = {
   type: string;
@@ -11,20 +12,18 @@ export function useRoomSocket(roomId: string, username: string | null) {
   const [isConnected, setIsConnected] = useState(false);
   const [members, setMembers] = useState<string[]>([]);
   const [word, setWord] = useState<string>("");
+  const [gameState, setGameState] = useState<GameState | null>(null);
+  const [isCurrentDrawer, setIsCurrentDrawer] = useState(false);
+  const [wordOptions, setWordOptions] = useState<string[]>([]);
+
   useEffect(() => {
     if (!roomId || !username) return;
 
     const ws = new WebSocket(`ws://localhost:8080`);
 
-    const requestWord = () => {
-      ws.send(JSON.stringify({ type: "getWord", room: roomId, username }));
-    };
-
     ws.onopen = () => {
       setIsConnected(true);
       ws.send(JSON.stringify({ type: "join", room: roomId, username }));
-      //  request word when joining (server will return existing word for the room)
-      requestWord();
     };
 
     const requestMembers = () => {
@@ -45,6 +44,16 @@ export function useRoomSocket(roomId: string, username: string | null) {
           } else {
             requestMembers();       //if new member joined fetch again
           }
+        } else if (data.type === "gameState") {
+          const newGameState = (data as any).gameState as GameState;
+          setGameState(newGameState);
+          setIsCurrentDrawer(newGameState.currentDrawer === username);
+        } else if (data.type === "wordOptions") {
+          setWordOptions((data as any).words);
+        } else if (data.type === "correctGuess") {
+          // Handle correct guess notification
+          const guessData = data as any;
+          console.log(`${guessData.username} guessed correctly! +${guessData.points} points`);
         }
       } catch (error) {
         console.error("Parsing error:", error);
@@ -73,5 +82,17 @@ export function useRoomSocket(roomId: string, username: string | null) {
     };
   }, [roomId, username]);
 
-  return { socket, isConnected, members, word };
+  const selectWord = useCallback((word: string) => {
+    if(socket && isConnected && socket.readyState === WebSocket.OPEN){
+      socket.send(JSON.stringify({ type: "selectWord", room: roomId, username, word }));
+    }
+  }, [socket, isConnected, roomId, username]);
+
+  const getWordOptions = useCallback(() => {
+    if(socket && isConnected && socket.readyState === WebSocket.OPEN){
+      socket.send(JSON.stringify({ type: "getWordOptions", room: roomId, username }));
+    }
+  }, [socket, isConnected, roomId, username]);
+
+  return { socket, isConnected, members, word, gameState, isCurrentDrawer, wordOptions, selectWord, getWordOptions };
 }

@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState } from 'react';
+import React, { createContext, useContext, useState, useCallback, useMemo } from 'react';
 
 interface DrawingAction {
   type: 'start' | 'draw';
@@ -38,7 +38,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
   const [roomId, setRoomId] = useState<string | null>(null);
   const [username, setUsername] = useState<string | null>(null);
 
-  const addDrawingAction = (action: DrawingAction) => {
+  const addDrawingAction = useCallback((action: DrawingAction) => {
     setDrawingActions(prev => [...prev, action]);
     
     // Send drawing action via websocket if connected
@@ -50,37 +50,48 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
         drawingAction: action
       }));
     }
-  };
+  }, [socket, roomId, username]);
 
-  const addRemoteDrawingAction = (action: DrawingAction) => {
+  const addRemoteDrawingAction = useCallback((action: DrawingAction) => {
     setDrawingActions(prev => [...prev, action]);
-  };
+  }, []);
 
-  const clearDrawingActions = () => {
+  const clearDrawingActions = useCallback(() => {
     setDrawingActions([]);
-  };
+  }, []);
+
+  const contextValue = useMemo(() => ({
+    color,
+    setColor,
+    brushSize,
+    setBrushSize,
+    clearCanvas,
+    setClearCanvas,
+    drawingActions,
+    addDrawingAction,
+    addRemoteDrawingAction,
+    clearDrawingActions,
+    socket,
+    setSocket,
+    roomId,
+    setRoomId,
+    username,
+    setUsername
+  }), [
+    color,
+    brushSize,
+    clearCanvas,
+    drawingActions,
+    addDrawingAction,
+    addRemoteDrawingAction,
+    clearDrawingActions,
+    socket,
+    roomId,
+    username
+  ]);
 
   return (
-    <CanvasContext.Provider
-      value={{
-        color,
-        setColor,
-        brushSize,
-        setBrushSize,
-        clearCanvas,
-        setClearCanvas,
-        drawingActions,
-        addDrawingAction,
-        addRemoteDrawingAction,
-        clearDrawingActions,
-        socket,
-        setSocket,
-        roomId,
-        setRoomId,
-        username,
-        setUsername
-      }}
-    >
+    <CanvasContext.Provider value={contextValue}>
       {children}
     </CanvasContext.Provider>
   );

@@ -4,15 +4,16 @@ import { cleanupStaleData } from "./cleanupStaleData";
 import { startHeartbeat } from "./startHeartbeat";
 import { ExtendedWebSocket } from "./types/websocket";
 import { getRandomWord } from "./getRandomWord";
+import { User } from "./types/user";
+import { GameManager } from "./game-logic/gameManager";
+import { broadcastGameState } from "./broadcastGameState";
+import { GamePhase, GameState } from "./game-logic/gameState";
 
 const wss = new WebSocketServer({ port: 8080 });
+// const wss = new WebSocketServer({ host: '0.0.0.0', port: 8080 });
+
 const redis: RedisClientType<{}, {}> = createClient();
 
-interface User {
-    ws: ExtendedWebSocket;
-    username: string;
-    lastSeen: number;
-}
 
 const wsConnections = new Map<string, User>();
 
@@ -20,6 +21,28 @@ const wsConnections = new Map<string, User>();
 redis.connect()
     .then(() => cleanupStaleData(redis))
     .catch(console.error);
+
+const gameManager = new GameManager(redis);
+
+// broadcast game state updates every 3 seconds for active games
+setInterval(async () => {
+  try {
+    const rooms = await redis.keys("room:*");
+    const activeRooms = rooms.filter(room => !room.includes(":word"));
+    
+    for (const roomKey of activeRooms) {
+      const roomId = roomKey.replace("room:", "");
+      const game = gameManager.getGame(roomId);
+      
+      if (game && game.gameStarted) {
+        broadcastGameState(roomId, gameManager, wsConnections);
+      }
+    }
+  } catch (error) {
+    console.error("Error in periodic broadcast:", error);
+  }
+}, 3000);
+
 
 wss.on("connection", (ws : ExtendedWebSocket) => {
     let username: string | null = null;
@@ -112,6 +135,11 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
                     return;
                 }
+
+                //add player to game
+                await gameManager.addPlayer(room, username);
+                //broadcast the game state to all players
+                broadcastGameState(room, gameManager, wsConnections);
                 //console.log(`User ${username} joined room ${room}`);
                 ws.send(JSON.stringify({ type: "success", message: "joined room" }));
                 return;
@@ -138,6 +166,53 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 //console.log("is in room: ", isInRoom);
 
                 const roomUsers = await redis.sMembers(`room:${room}`);
+                const game = gameManager.getGame(room);
+
+                // check if this is a guess during drawing phase (and user is NOT the drawer)
+                if (game && game.gamePhase === GamePhase.DRAWING && game.currentDrawer !== username) {
+                    console.log(`Processing guess: "${messageText}" from ${username}, word: "${game.currentWord}"`);
+                    const result = await gameManager.processGuess(room, username, messageText);
+                    console.log(`Guess result:`, result);
+
+                    if(result.isCorrect){
+                        // Send correct guess notification
+                        const correctGuessMessage = JSON.stringify({
+                            type: "correctGuess",
+                            username: result.username,
+                            guess: result.guess,
+                            points: result.points
+                        });
+
+                        roomUsers.forEach((id: string) => {
+                            const user = wsConnections.get(id);
+                            if (user) {
+                                user.ws.send(correctGuessMessage);
+                            }
+                        });
+
+                        // Also send as special chat message so drawer can see it
+                        const specialChatMessage = JSON.stringify({
+                            type: "chat",
+                            message: `✅ ${messageText}`,
+                            room,
+                            username,
+                            isCorrectGuess: true
+                        });
+
+                        roomUsers.forEach((id: string) => {
+                            const user = wsConnections.get(id);
+                            if (user) {
+                                user.ws.send(specialChatMessage);
+                            }
+                        });
+
+                        // update game state after correct guess
+                        broadcastGameState(room, gameManager, wsConnections);
+                        return;
+                    }
+                }
+
+                // Send as regular chat message
                 const messageData = JSON.stringify({
                     type: "chat",
                     message: messageText,
@@ -214,6 +289,14 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     username
                 });
 
+                if(!gameManager.canPlayerDraw(room, username)){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "you are not the current drawer"
+                    }));
+                    return;
+                }
+
                 // Send drawing action to all users in the room except the sender
                 roomUsers.forEach((id: string) => {
                     if (id !== username) {
@@ -227,36 +310,67 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 return;
             }
 
-            if (data.type === "getWord") {
-                if (!username) {
-                    ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
+            if(data.type === "selectWord"){
+                if(!username || !wsConnections.has(username) || !room){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "not authenticated or room not found"
+                    }));
                     return;
                 }
-                const room = data.room;
-                if (!room) {
-                    ws.send(JSON.stringify({ type: "error", message: "room not found" }));
+
+                const word = data.word;
+                if(!word || typeof word !== "string"){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "invalid word"
+                    }));
                     return;
                 }
-                
-                // Check if a word already exists for this room
-                const existingWord = await redis.get(`room:${room}:word`);
-                let word;
-                
-                if (existingWord) {
-                    // Use existing word
-                    word = existingWord;
+
+                const success = await gameManager.selectWord(room, username, word);
+                if(success){
+                    broadcastGameState(room, gameManager, wsConnections);
                 } else {
-                    // Generate new word only if none exists
-                    word = getRandomWord();
-                    if (!word) {
-                        ws.send(JSON.stringify({ type: "error", message: "failed to get a word" }));
-                        return;
-                    }
-                    await redis.set(`room:${room}:word`, word);
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "failed to select word"
+                    }));
+                    return;
                 }
-                
-                console.log(`room:${room}:word`, word);
-                ws.send(JSON.stringify({ type: "word", message: word }));
+
+            }
+
+            if(data.type === "getWordOptions"){
+                if(!username || !wsConnections.has(username) || !room){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "not authenticated or room not found"
+                    }));
+                    return;
+                }
+
+                const game = gameManager.getGame(room);
+
+                const wordOptions = gameManager.getWordOptions(room, username);
+                if (wordOptions) {
+                    ws.send(JSON.stringify({
+                        type: "wordOptions",
+                        words: wordOptions,
+                        timeLeft: gameManager.getGame(room)?.roundTimeLeft || 0
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "not in word selection phase"
+                    }));
+                }
+                return;
+            }
+
+            // Disabled old getWord handler - now using game manager for word handling
+            if (data.type === "getWord") {
+                ws.send(JSON.stringify({ type: "error", message: "getWord deprecated - use game state" }));
                 return;
             }
         } catch (err) {
@@ -284,6 +398,10 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                     const roomId = room.replace("room:", "");
                     await redis.del(`room:${roomId}:word`);
                 }
+
+                const roomId = room.replace("room:", "");
+                await gameManager.removePlayer(roomId, username);
+                broadcastGameState(roomId, gameManager, wsConnections);
             }
             wsConnections.delete(username);
         }

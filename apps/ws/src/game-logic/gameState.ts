@@ -35,6 +35,33 @@ export interface GuessResult {
     points?: number;
 }
 
+export interface WordSelectionData {
+    words: string[];
+    timeLeft: number;
+  }
+  
+  export interface GameStateUpdate {
+    type: "gameState";
+    gameState: {
+      players: { [username: string]: Player };
+      currentDrawer: string | null;
+      currentWord: string | null;
+      gamePhase: GamePhase;
+      round: number;
+      maxRounds: number;
+      roundTimeLeft: number;
+      correctGuessers: string[];
+      gameStarted: boolean;
+    };
+  }
+  
+
+  export interface GuessResult {
+    username: string;
+    guess: string;
+    isCorrect: boolean;
+    points?: number;
+  }
 
 
 

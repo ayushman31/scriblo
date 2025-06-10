@@ -6,9 +6,10 @@ import { useTheme } from 'next-themes';
 
 interface CanvasProps {
   className?: string;
+  canDraw?: boolean;
 }
 
-export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
+export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
   const { theme } = useTheme();
@@ -93,26 +94,29 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    // Process new drawing actions
-    for (let i = lastProcessedIndex; i < drawingActions.length; i++) {
-      const action = drawingActions[i];
-      
-      ctx.strokeStyle = action.color;
-      ctx.lineWidth = action.brushSize;
-      ctx.lineCap = 'round';
-      ctx.lineJoin = 'round';
+    // Only process if there are new actions
+    if (drawingActions.length > lastProcessedIndex) {
+      // Process new drawing actions
+      for (let i = lastProcessedIndex; i < drawingActions.length; i++) {
+        const action = drawingActions[i];
+        
+        ctx.strokeStyle = action.color;
+        ctx.lineWidth = action.brushSize;
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
 
-      if (action.type === 'start') {
-        ctx.beginPath();
-        ctx.moveTo(action.x, action.y);
-      } else if (action.type === 'draw') {
-        ctx.lineTo(action.x, action.y);
-        ctx.stroke();
+        if (action.type === 'start') {
+          ctx.beginPath();
+          ctx.moveTo(action.x, action.y);
+        } else if (action.type === 'draw') {
+          ctx.lineTo(action.x, action.y);
+          ctx.stroke();
+        }
       }
-    }
 
-    setLastProcessedIndex(drawingActions.length);
-  }, [drawingActions, lastProcessedIndex]);
+      setLastProcessedIndex(drawingActions.length);
+    }
+  }, [drawingActions]); // Remove lastProcessedIndex from dependencies
 
   const getMousePosition = (e: React.MouseEvent<HTMLCanvasElement>) => {
     const canvas = canvasRef.current;
@@ -126,6 +130,8 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
   };
 
   const startDrawing = (e: React.MouseEvent<HTMLCanvasElement>) => {
+    if (!canDraw) return;
+    
     const canvas = canvasRef.current;
     if (!canvas) return;
 
@@ -142,7 +148,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
   };
 
   const draw = (e: React.MouseEvent<HTMLCanvasElement>) => {
-    if (!isDrawing) return;
+    if (!isDrawing || !canDraw) return;
 
     const canvas = canvasRef.current;
     if (!canvas) return;
@@ -173,7 +179,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '' }) => {
       style={{
         border: '1px solid var(--border)',
         borderRadius: '4px',
-        cursor: 'crosshair'
+        cursor: canDraw ? 'crosshair' : 'not-allowed'
         // backgroundColor moved to useEffect
       }}
     />
