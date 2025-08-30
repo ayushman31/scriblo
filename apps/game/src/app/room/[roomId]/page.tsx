@@ -9,6 +9,7 @@ import { useRoomSocket } from "@/hooks/useRoomSocket";
 import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
 import { useCanvas } from '@/components/canvas/CanvasContext';
 import { Fredoka } from 'next/font/google';
+import { GameState } from "@/types/types";
 
 const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
 
@@ -59,7 +60,7 @@ const WordSelection = ({ wordOptions, onSelectWord, timeLeft }: {
 );
 
 const GameStatus = ({ gameState, username }: {
-  gameState: any;
+  gameState: GameState;
   username: string | null;
 }) => {
   if (!gameState) return null;
@@ -132,7 +133,7 @@ export default function RoomPage() {
         <ModeToggle />
       </div>
 
-      <GameStatus gameState={gameState} username={username} />
+      <GameStatus gameState ={gameState!} username={username} />
 
       {/* Show word only to drawer during drawing phase */}
       {word && isCurrentDrawer && gameState?.gamePhase === "drawing" && (
