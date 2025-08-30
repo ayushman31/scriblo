@@ -1,7 +1,4 @@
 "use client";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@/components/ui/dialog";
-import { Input } from "@/components/ui/input";
 import { Fredoka } from 'next/font/google';
 import Image from "next/image";
 import { useState } from "react";
@@ -14,7 +11,6 @@ const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
 
 export default function Home() {
   const [isOpen, setIsOpen] = useState(false);
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [hasRoomCode, setHasRoomCode] = useState(true);
 
   return (
