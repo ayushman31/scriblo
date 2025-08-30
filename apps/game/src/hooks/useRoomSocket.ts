@@ -5,6 +5,10 @@ type WebSocketMessage = {
   type: string;
   message: string | string[];
   error?: string;
+  gameState?: GameState;
+  words?: string[];
+  username?: string;
+  points?: number;
 };
 
 export function useRoomSocket(roomId: string, username: string | null) {
@@ -45,14 +49,14 @@ export function useRoomSocket(roomId: string, username: string | null) {
             requestMembers();       //if new member joined fetch again
           }
         } else if (data.type === "gameState") {
-          const newGameState = (data as any).gameState as GameState;
+          const newGameState = (data as WebSocketMessage).gameState as GameState;
           setGameState(newGameState);
           setIsCurrentDrawer(newGameState.currentDrawer === username);
         } else if (data.type === "wordOptions") {
-          setWordOptions((data as any).words);
+          setWordOptions((data as WebSocketMessage).words!);
         } else if (data.type === "correctGuess") {
           // Handle correct guess notification
-          const guessData = data as any;
+          const guessData = data as WebSocketMessage;
           console.log(`${guessData.username} guessed correctly! +${guessData.points} points`);
         }
       } catch (error) {
