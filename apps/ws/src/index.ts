@@ -9,8 +9,8 @@ import { GameManager } from "./game-logic/gameManager";
 import { broadcastGameState } from "./broadcastGameState";
 import { GamePhase, GameState } from "./game-logic/gameState";
 
-const wss = new WebSocketServer({ port: 8080 });
-// const wss = new WebSocketServer({ host: '0.0.0.0', port: 8080 });
+// const wss = new WebSocketServer({ port: 8080 });
+const wss = new WebSocketServer({ host: '0.0.0.0', port: 8080 });
 
 const redis: RedisClientType<{}, {}> = createClient();
 
