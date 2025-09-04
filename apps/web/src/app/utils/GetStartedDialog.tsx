@@ -14,7 +14,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen, hasRoomCode, setHasRoomCod
             return;
         }
 
-        window.location.href = `http://localhost:3001/room/${roomId}?username=${encodeURIComponent(username)}`;
+        window.location.href = `http://game.ayushman.blog/room/${roomId}?username=${encodeURIComponent(username)}`;
 
     }
     return (
