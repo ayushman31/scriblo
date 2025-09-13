@@ -93,6 +93,40 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 return;
             }
 
+            if (data.type === "validate_room") {
+                const roomToValidate = data.room;
+                if (!roomToValidate) {
+                    ws.send(JSON.stringify({ 
+                        type: "room_validation_result", 
+                        exists: false, 
+                        message: "Room ID is required" 
+                    }));
+                    return;
+                }
+
+                try {
+                    const roomKey = `room:${roomToValidate}`;
+                    const roomMembers = await redis.sMembers(roomKey);
+                    const exists = roomMembers.length > 0;
+                    
+                    ws.send(JSON.stringify({ 
+                        type: "room_validation_result", 
+                        exists: exists,
+                        roomId: roomToValidate,
+                        playerCount: roomMembers.length,
+                        message: exists ? "Room found" : "Room not found"
+                    }));
+                } catch (error) {
+                    console.error("Error validating room:", error);
+                    ws.send(JSON.stringify({ 
+                        type: "room_validation_result", 
+                        exists: false, 
+                        message: "Error validating room" 
+                    }));
+                }
+                return;
+            }
+
             if (data.type === "join") {
                 if (!username) {
                     ws.send(JSON.stringify({ type: "error", message: "not authenticated" }));
