@@ -10,6 +10,8 @@ import { Canvas, CanvasProvider, CanvasControls } from '@/components/canvas';
 import { useCanvas } from '@/components/canvas/CanvasContext';
 import { Fredoka } from 'next/font/google';
 import { GameState } from "@/types/types";
+import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
 
 const fredoka = Fredoka({ subsets: ['latin'], weight: '400' });
 
@@ -130,6 +132,12 @@ export default function RoomPage() {
     <div className={`${fredoka.className} m-10 h-100vh`}>
       <div className="flex w-full justify-between items-center mb-10">
         <h1 className="text-6xl font-bold">Scriblo</h1>
+        <Button variant={"default"} className="cursor-pointer font-bold" onClick={() => {
+          navigator.clipboard.writeText(roomId);
+          toast.success("Room code copied to clipboard");
+        }}>
+          Copy Room Code
+        </Button>
         <ModeToggle />
       </div>
 
