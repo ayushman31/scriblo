@@ -407,6 +407,31 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                 ws.send(JSON.stringify({ type: "error", message: "getWord deprecated - use game state" }));
                 return;
             }
+
+            if(data.type === "startGame"){
+                if(!username || !wsConnections.has(username) || !room){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "not authenticated or room not found"
+                    }));
+                    return;
+                }
+
+                const success = await gameManager.startGame(room);
+                if(success){
+                    broadcastGameState(room, gameManager, wsConnections);
+                    ws.send(JSON.stringify({
+                        type: "success",
+                        message: "game started"
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "failed to start game - need at least 2 players or game already started"
+                    }));
+                }
+                return;
+            }
         } catch (err) {
             console.error("error processing message:", err);
             ws.send(JSON.stringify({ type: "error", message: "internal server error" }));
