@@ -61,16 +61,18 @@ const WordSelection = ({ wordOptions, onSelectWord, timeLeft }: {
   </div>
 );
 
-const GameStatus = ({ gameState, username }: {
+const GameStatus = ({ gameState, username, onStartGame, playerCount }: {
   gameState: GameState;
   username: string | null;
+  onStartGame: () => void;
+  playerCount: number;
 }) => {
   if (!gameState) return null;
 
   const getPhaseText = () => {
     switch (gameState.gamePhase) {
       case "waiting":
-        return "Waiting for players...";
+        return playerCount >= 2 ? "Ready to start!" : "Waiting for players...";
       case "wordSelection":
         return gameState.currentDrawer === username 
           ? "Choose your word!" 
@@ -88,12 +90,26 @@ const GameStatus = ({ gameState, username }: {
     }
   };
 
+  const canStartGame = gameState.gamePhase === "waiting" && playerCount >= 2 && !gameState.gameStarted;
+
   return (
     <div className="text-center mb-4">
       <div className="text-lg font-semibold">{getPhaseText()}</div>
       {gameState.gameStarted && (
         <div className="text-sm text-gray-600">
           Round {gameState.round}/{gameState.maxRounds} • Time: {gameState.roundTimeLeft}s
+        </div>
+      )}
+      {canStartGame && (
+        <div className="mt-4">
+          <Button onClick={onStartGame} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">
+            Start Game
+          </Button>
+        </div>
+      )}
+      {gameState.gamePhase === "waiting" && playerCount < 2 && (
+        <div className="text-sm text-gray-500 mt-2">
+          Need at least 2 players to start
         </div>
       )}
     </div>
@@ -115,7 +131,8 @@ export default function RoomPage() {
     wordOptions, 
     isCurrentDrawer,
     selectWord,
-    getWordOptions
+    getWordOptions,
+    startGame
   } = useRoomSocket(roomId, username);
 
   // request word options when becoming drawer
@@ -141,7 +158,12 @@ export default function RoomPage() {
         <ModeToggle />
       </div>
 
-      <GameStatus gameState ={gameState!} username={username} />
+      <GameStatus 
+        gameState={gameState!} 
+        username={username} 
+        onStartGame={startGame}
+        playerCount={members.length}
+      />
 
       {/* Show word only to drawer during drawing phase */}
       {word && isCurrentDrawer && gameState?.gamePhase === "drawing" && (
