@@ -51,11 +51,6 @@ export class GameManager {
             game.players.get(username)!.isConnected = true;   //player rejoining
         }
 
-        //we will start the game if there are 2 or more players
-        if(game.players.size >= 2 && !game.gameStarted){
-            this.startGame(roomId);
-        }
-
         return game;
     }
 
@@ -86,22 +81,33 @@ export class GameManager {
         return game;
     }
 
-    async startGame(roomId: string){
+    async startGame(roomId: string): Promise<boolean>{
         const game = this.games.get(roomId);
         if(!game){
-            return;
+            return false;
+        }
+
+        // check if game can be started
+        if(game.gameStarted){
+            return false; // game already started
+        }
+
+        const connectedPlayers = Array.from(game.players.values()).filter(p => p.isConnected);
+        if(connectedPlayers.length < 2){
+            return false; // need at least 2 players
         }
 
         game.round = 1;
         game.gameStarted = true;
         game.gamePhase = GamePhase.WORD_SELECTION;
 
-        //we will select a random drawer
+        //select a random drawer
         const players = Array.from(game.players.keys()).filter(p => game.players.get(p)?.isConnected);
         
         game.currentDrawer = players[0] || null;
 
         this.startWordSelection(roomId);
+        return true;
     }
 
     async startWordSelection(roomId: string){
@@ -120,7 +126,7 @@ export class GameManager {
             player.hasGuessed = false;
         });
 
-        // Clear previous word from Redis
+        // clear previous word from Redis
         await this.redis.del(`room:${roomId}:word`);
 
         this.startTimer(roomId, 15, () => {
@@ -350,6 +356,16 @@ export class GameManager {
             return null;
         }
         return game.wordOptions;
+    }
+
+    canStartGame(roomId: string): boolean {
+        const game = this.games.get(roomId);
+        if(!game || game.gameStarted){
+            return false;
+        }
+
+        const connectedPlayers = Array.from(game.players.values()).filter(p => p.isConnected);
+        return connectedPlayers.length >= 2;
     }
 
 }
