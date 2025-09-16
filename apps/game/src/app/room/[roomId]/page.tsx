@@ -102,7 +102,7 @@ const GameStatus = ({ gameState, username, onStartGame, playerCount }: {
       )}
       {canStartGame && (
         <div className="mt-4">
-          <Button onClick={onStartGame} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">
+          <Button onClick={onStartGame} className="bg-yellow-100 hover:bg-yellow-200 text-black font-bold py-2 px-6 rounded-lg">
             Start Game
           </Button>
         </div>
