@@ -2,7 +2,6 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import { useCanvas } from '@/components/canvas/CanvasContext';
-import { useTheme } from 'next-themes';
 
 interface CanvasProps {
   className?: string;
@@ -12,7 +11,6 @@ interface CanvasProps {
 export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const { theme } = useTheme();
   const { color, brushSize, clearCanvas, addDrawingAction, drawingActions, socket, addRemoteDrawingAction, clearDrawingActions } = useCanvas();
   const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
 
@@ -55,13 +53,13 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }
     }
   }, [color, brushSize, clearCanvas, clearDrawingActions]);
 
-  // Set background color after mount (avoids hydration error)
+  // set canvas background to always be white
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.style.backgroundColor = theme === 'dark' ? 'var(--card)' : 'var(--background)';
-  }, [theme]);
+    canvas.style.backgroundColor = '#ffffff';
+  }, []);
 
   // Listen for remote drawing actions via websocket
   useEffect(() => {
