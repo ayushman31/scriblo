@@ -186,7 +186,7 @@ export default function RoomPage() {
           {socket && isConnected && <Members members={members} gameState={gameState} />}
         </div>
 
-        <div className="w-3/5 rounded-md">
+        <div className="w-[900px] rounded-md">
           <CanvasProvider>
             <div className="h-[500px]">
               <ConnectedCanvas 

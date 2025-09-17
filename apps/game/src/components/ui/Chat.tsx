@@ -73,7 +73,7 @@ export function Chat({ socket, username, roomId }: ChatProps) {
 
   return (
     <div className="flex flex-col items-end justify-center mx-5">
-      <ScrollArea className="h-[450px] w-full rounded-md border" ref={scrollRef}>
+      <ScrollArea className="h-[450px] 2xl:h-[550px] w-full rounded-md border" ref={scrollRef}>
         <div className="p-4 space-y-4">
           {messages.map((message) => (
             <div key={message.id} className={`flex flex-col ${message.isCorrectGuess ? ' rounded' : ''}`}>

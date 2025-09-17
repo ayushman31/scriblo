@@ -17,7 +17,7 @@ export const Members = ({ members, gameState }: MembersProps) => {
   return (
     <div className="flex flex-col mx-5">
       <h3 className="font-bold mb-2 text-center">Players</h3>
-      <ScrollArea className="h-[400px] rounded-md border">
+      <ScrollArea className="h-[400px] 2xl:h-[500px] rounded-md border">
         <div className="p-4">
           {playersToShow.map((player: Player, index) => (
             <React.Fragment key={index}>
