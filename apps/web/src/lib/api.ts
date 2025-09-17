@@ -22,7 +22,7 @@ export async function validateRoom(roomId: string): Promise<RoomValidationRespon
         exists: false,
         message: "Connection timeout while validating room"
       });
-    }, 5000);
+    }, 15000);
 
     ws.onopen = () => {
       ws.send(JSON.stringify({
