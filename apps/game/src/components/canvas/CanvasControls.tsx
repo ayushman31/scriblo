@@ -26,38 +26,41 @@ const basicColors = [
 
 const brushSizes = Array.from({ length: 25 }, (_, i) => (i + 1) * 2); // 2px to 50px in steps of 2
 
-export const CanvasControls: React.FC = () => {
+interface CanvasControlsProps {
+  canDraw?: boolean;
+  onClearCanvas?: () => void;
+}
+
+export const CanvasControls: React.FC<CanvasControlsProps> = ({ canDraw = true, onClearCanvas }) => {
   const [colorOpen, setColorOpen] = useState(false);
   const [brushOpen, setBrushOpen] = useState(false);
   const {
     color,
     setColor,
     brushSize,
-    setBrushSize,
-    setClearCanvas,
-    clearDrawingActions
+    setBrushSize
   } = useCanvas();
 
   const handleClear = () => {
-    setClearCanvas(true);
-    clearDrawingActions();
-    // Reset clearCanvas after a short delay
-    setTimeout(() => setClearCanvas(false), 100);
+    if (onClearCanvas) {
+      onClearCanvas();
+    }
   };
 
   const selectedColor = basicColors.find(c => c.value === color);
   const currentColorLabel = selectedColor ? selectedColor.label : 'Custom';
 
   return (
-    <div className="flex items-center justify-between  p-2 bg-card rounded-lg border">
+    <div className={`flex items-center justify-between p-2 bg-card rounded-lg border ${!canDraw ? 'opacity-50' : ''}`}>
       {/* Color Picker Popover */}
-      <Popover open={colorOpen} onOpenChange={setColorOpen}>
+      <Popover open={canDraw ? colorOpen : false} onOpenChange={canDraw ? setColorOpen : () => {}}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={colorOpen}
             className="w-[140px] justify-between"
+            disabled={!canDraw}
           >
             <div className="flex items-center gap-2">
               <div
@@ -94,13 +97,14 @@ export const CanvasControls: React.FC = () => {
       </Popover>
 
       {/* Brush Size Popover */}
-      <Popover open={brushOpen} onOpenChange={setBrushOpen}>
+      <Popover open={canDraw ? brushOpen : false} onOpenChange={canDraw ? setBrushOpen : () => {}}>
         <PopoverTrigger asChild>
           <Button
             variant="outline"
             role="combobox"
             aria-expanded={brushOpen}
             className="w-[120px] justify-between"
+            disabled={!canDraw}
           >
             <div className="flex items-center gap-2">
               <BrushIcon className="h-4 w-4" />
@@ -138,6 +142,7 @@ export const CanvasControls: React.FC = () => {
         onClick={handleClear}
         variant="outline"
         size="sm"
+        disabled={!canDraw}
       >
         Clear Canvas
       </Button>

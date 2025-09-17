@@ -19,6 +19,7 @@ interface CanvasContextType {
   addDrawingAction: (action: DrawingAction) => void;
   addRemoteDrawingAction: (action: DrawingAction) => void;
   clearDrawingActions: () => void;
+  clearCanvasRemote: () => void;
   socket: WebSocket | null;
   setSocket: (socket: WebSocket | null) => void;
   roomId: string | null;
@@ -60,6 +61,25 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     setDrawingActions([]);
   }, []);
 
+  const clearCanvasRemote = useCallback(() => {
+    console.log('clearCanvasRemote called', { 
+      hasSocket: !!socket, 
+      socketReady: socket?.readyState === WebSocket.OPEN, 
+      roomId, 
+      username 
+    });
+    if (socket && socket.readyState === WebSocket.OPEN && roomId && username) {
+      console.log('sending clearCanvas WebSocket message');
+      socket.send(JSON.stringify({
+        type: "clearCanvas",
+        room: roomId,
+        username
+      }));
+    } else {
+      console.log('cannot send clearCanvas');
+    }
+  }, [socket, roomId, username]);
+
   const contextValue = useMemo(() => ({
     color,
     setColor,
@@ -71,6 +91,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addDrawingAction,
     addRemoteDrawingAction,
     clearDrawingActions,
+    clearCanvasRemote,
     socket,
     setSocket,
     roomId,
@@ -85,6 +106,7 @@ export const CanvasProvider: React.FC<{ children: React.ReactNode }> = ({ childr
     addDrawingAction,
     addRemoteDrawingAction,
     clearDrawingActions,
+    clearCanvasRemote,
     socket,
     roomId,
     username

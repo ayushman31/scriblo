@@ -11,7 +11,7 @@ interface CanvasProps {
 export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [isDrawing, setIsDrawing] = useState(false);
-  const { color, brushSize, clearCanvas, addDrawingAction, drawingActions, socket, addRemoteDrawingAction, clearDrawingActions } = useCanvas();
+  const { color, brushSize, clearCanvas, setClearCanvas, addDrawingAction, drawingActions, socket, addRemoteDrawingAction, clearDrawingActions } = useCanvas();
   const [lastProcessedIndex, setLastProcessedIndex] = useState(0);
 
   // Set canvas dimensions to match its display size
@@ -71,6 +71,11 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }
         
         if (data.type === "draw" && data.drawingAction) {
           addRemoteDrawingAction(data.drawingAction);
+        } else if (data.type === "clearCanvas") {
+          // clear the canvas when receiving clearCanvas message
+          setClearCanvas(true);
+          clearDrawingActions();
+          setTimeout(() => setClearCanvas(false), 100);
         }
       } catch (error) {
         console.error("Error parsing websocket message:", error);
@@ -82,7 +87,7 @@ export const Canvas: React.FC<CanvasProps> = ({ className = '', canDraw = true }
     return () => {
       socket.removeEventListener("message", handleWebSocketMessage);
     };
-  }, [socket, addRemoteDrawingAction]);
+  }, [socket, addRemoteDrawingAction, setClearCanvas, clearDrawingActions]);
 
   // Process drawing actions (both local and remote)
   useEffect(() => {

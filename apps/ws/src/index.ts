@@ -364,6 +364,21 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
 
                 const success = await gameManager.selectWord(room, username, word);
                 if(success){
+                    // clear canvas for everyone when word is selected and drawing starts
+                    const roomUsers = await redis.sMembers(`room:${room}`);
+                    const clearMessage = JSON.stringify({
+                        type: "clearCanvas",
+                        room,
+                        username: "system"
+                    });
+
+                    roomUsers.forEach((id: string) => {
+                        const user = wsConnections.get(id);
+                        if (user) {
+                            user.ws.send(clearMessage);
+                        }
+                    });
+
                     broadcastGameState(room, gameManager, wsConnections);
                 } else {
                     ws.send(JSON.stringify({
@@ -430,6 +445,40 @@ wss.on("connection", (ws : ExtendedWebSocket) => {
                         message: "failed to start game - need at least 2 players or game already started"
                     }));
                 }
+                return;
+            }
+
+            if(data.type === "clearCanvas"){
+                if(!username || !wsConnections.has(username) || !room){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "not authenticated or room not found"
+                    }));
+                    return;
+                }
+
+                const game = gameManager.getGame(room);
+                if(!game || game.currentDrawer !== username){
+                    ws.send(JSON.stringify({
+                        type: "error",
+                        message: "only the current drawer can clear the canvas"
+                    }));
+                    return;
+                }
+
+                const roomUsers = await redis.sMembers(`room:${room}`);
+                const clearMessage = JSON.stringify({
+                    type: "clearCanvas",
+                    room,
+                    username
+                });
+
+                roomUsers.forEach((id: string) => {
+                    const user = wsConnections.get(id);
+                    if (user) {
+                        user.ws.send(clearMessage);
+                    }
+                });
                 return;
             }
         } catch (err) {

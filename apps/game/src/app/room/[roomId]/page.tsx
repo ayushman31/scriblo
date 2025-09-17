@@ -132,7 +132,8 @@ export default function RoomPage() {
     isCurrentDrawer,
     selectWord,
     getWordOptions,
-    startGame
+    startGame,
+    clearCanvas
   } = useRoomSocket(roomId, username);
 
   // request word options when becoming drawer
@@ -196,7 +197,7 @@ export default function RoomPage() {
                 canDraw={canDraw}
               />
             </div>
-            <div><CanvasControls /></div>
+            <div><CanvasControls canDraw={canDraw} onClearCanvas={clearCanvas} /></div>
           </CanvasProvider>
         </div>
         

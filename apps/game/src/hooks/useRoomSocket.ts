@@ -105,5 +105,11 @@ export function useRoomSocket(roomId: string, username: string | null) {
     }
   }, [socket, isConnected, roomId, username]);
 
-  return { socket, isConnected, members, word, gameState, isCurrentDrawer, wordOptions, selectWord, getWordOptions, startGame };
+  const clearCanvas = useCallback(() => {
+    if(socket && isConnected && socket.readyState === WebSocket.OPEN){
+      socket.send(JSON.stringify({ type: "clearCanvas", room: roomId, username }));
+    }
+  }, [socket, isConnected, roomId, username]);
+
+  return { socket, isConnected, members, word, gameState, isCurrentDrawer, wordOptions, selectWord, getWordOptions, startGame, clearCanvas };
 }
