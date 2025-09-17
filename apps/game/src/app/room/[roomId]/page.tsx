@@ -34,7 +34,7 @@ const ConnectedCanvas = ({
     setUsername(username);
   }, [socket, roomId, username, setSocket, setRoomId, setUsername]);
 
-  return <Canvas className="w-full h-full mb-10" canDraw={canDraw} />;
+  return <Canvas className="w-full h-full" canDraw={canDraw} />;
 };
 
 // Add new components for game UI
@@ -146,9 +146,9 @@ export default function RoomPage() {
   const canDraw = isCurrentDrawer && gameState?.gamePhase === "drawing";
 
   return (
-    <div className={`${fredoka.className} m-10 h-100vh`}>
-      <div className="flex w-full justify-between items-center mb-10">
-        <h1 className="text-6xl font-bold">Scriblo</h1>
+    <div className={`${fredoka.className} h-screen flex flex-col overflow-hidden p-4`}>
+      <div className="flex w-full justify-between items-center mb-6">
+        <h1 className="text-5xl font-bold">Scriblo</h1>
         <Button variant={"default"} className="cursor-pointer font-bold" onClick={() => {
           navigator.clipboard.writeText(roomId);
           toast.success("Room code copied to clipboard");
@@ -167,33 +167,35 @@ export default function RoomPage() {
 
       {/* Show word only to drawer during drawing phase */}
       {word && isCurrentDrawer && gameState?.gamePhase === "drawing" && (
-        <div className="flex w-full items-center justify-center mb-8">
+        <div className="flex w-full items-center justify-center mb-4">
           <h1 className="text-2xl font-bold border-2 border-gray-300 rounded-md p-2">{word}</h1>
         </div>
       )}
 
       {/* Show revealed word to everyone during round end */}
       {word && gameState?.gamePhase === "roundEnd" && (
-        <div className="flex w-full items-center justify-center mb-8">
+        <div className="flex w-full items-center justify-center mb-4">
           <h1 className="text-2xl font-bold border-2 border-green-500 rounded-md p-2">
             The word was: {word}
           </h1>
         </div>
       )}
 
-      <div className="w-full flex items-center justify-center">
+      <div className="w-full flex items-start justify-center">
         <div className="w-1/5">
           {socket && isConnected && <Members members={members} gameState={gameState} />}
         </div>
 
         <div className="w-3/5 rounded-md">
           <CanvasProvider>
-            <ConnectedCanvas 
-              socket={socket} 
-              roomId={roomId} 
-              username={username} 
-              canDraw={canDraw}
-            />
+            <div className="h-[500px]">
+              <ConnectedCanvas 
+                socket={socket} 
+                roomId={roomId} 
+                username={username} 
+                canDraw={canDraw}
+              />
+            </div>
             <div><CanvasControls /></div>
           </CanvasProvider>
         </div>
