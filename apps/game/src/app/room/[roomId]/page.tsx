@@ -150,12 +150,63 @@ export default function RoomPage() {
     <div className={`${fredoka.className} h-screen flex flex-col overflow-hidden p-4`}>
       <div className="flex w-full justify-between items-center mb-6">
         <h1 className="text-5xl font-bold">Scriblo</h1>
-        <Button variant={"default"} className="cursor-pointer font-bold" onClick={() => {
+
+        {/* use the following when in https */}
+        {/* <Button variant={"default"} className="cursor-pointer font-bold" onClick={() => {
           navigator.clipboard.writeText(roomId);
           toast.success("Room code copied to clipboard");
         }}>
           Copy Room Code
-        </Button>
+        </Button> */}
+
+        {/* use the following when in http */}
+        <Button 
+  variant={"default"} 
+  className="cursor-pointer font-bold" 
+  onClick={() => {
+    // Fallback function for HTTP environments
+    const copyToClipboard = (roomId: string) => {
+      if (navigator.clipboard && window.isSecureContext) {
+        // Use modern clipboard API for HTTPS
+        navigator.clipboard.writeText(roomId).then(() => {
+          toast.success("Room code copied to clipboard");
+        }).catch(err => {
+          console.error('Failed to copy: ', err);
+          fallbackCopy(roomId);
+        });
+      } else {
+        // Fallback for HTTP
+        fallbackCopy(roomId);
+      }
+    };
+
+    const fallbackCopy = (roomId: string) => {
+      const textArea = document.createElement("textarea");
+      textArea.value = roomId;
+      textArea.style.position = "fixed";
+      textArea.style.left = "-999999px";
+      textArea.style.top = "-999999px";
+      document.body.appendChild(textArea);
+      textArea.focus();
+      textArea.select();
+      
+      try {
+        document.execCommand('copy');
+        toast.success("Room code copied to clipboard");
+      } catch (err) {
+        console.error('Unable to copy to clipboard', err);
+        toast.error("Failed to copy room code");
+      }
+      
+      document.body.removeChild(textArea);
+    };
+
+    copyToClipboard(roomId);
+  }}
+>
+  Copy Room Code
+</Button>
+
         <ModeToggle />
       </div>
 
