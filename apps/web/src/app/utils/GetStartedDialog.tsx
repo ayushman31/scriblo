@@ -23,7 +23,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen, hasRoomCode, setHasRoomCod
 
         if (!roomId) {
             const generatedRoomId = Math.random().toString(36).substring(2, 8).toUpperCase();
-            window.location.href = `http://localhost:3001/room/${generatedRoomId}?username=${encodeURIComponent(username)}`;
+            window.location.href = `http://game.ayushman.blog/room/${roomId}?username=${encodeURIComponent(username)}`;
             return;
         }
 
@@ -35,7 +35,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen, hasRoomCode, setHasRoomCod
             if (roomInfo.exists) {
                 // Room exists, proceed to join
                 // Note: Room capacity is managed by the WebSocket server during actual join
-                window.location.href = `http://localhost:3001/room/${roomId}?username=${encodeURIComponent(username)}`;
+                window.location.href = `http://game.ayushman.blog/room/${roomId}?username=${encodeURIComponent(username)}`;
             } else {
                 // Room doesn't exist, show error dialog
                 setErrorTitle("Oops! Room Not Found");

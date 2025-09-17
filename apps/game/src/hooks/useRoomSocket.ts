@@ -24,7 +24,7 @@ export function useRoomSocket(roomId: string, username: string | null) {
     if (!roomId || !username) return;
 
     // const ws = new WebSocket(`ws://ws-scriblo.ayushman.blog`);
-    const ws = new WebSocket(`ws://localhost:8080`);
+    const ws = new WebSocket(`ws://ws-scriblo.ayushman.blog`);
 
     ws.onopen = () => {
       setIsConnected(true);

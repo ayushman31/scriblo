@@ -13,7 +13,7 @@ export interface RoomValidationResponse {
 
 export async function validateRoom(roomId: string): Promise<RoomValidationResponse> {
   return new Promise((resolve) => {
-    const ws = new WebSocket('ws://localhost:8080');
+    const ws = new WebSocket('ws://ws-scriblo.ayushman.blog');
     
     const timeout = setTimeout(() => {
       ws.close();
