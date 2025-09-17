@@ -22,6 +22,7 @@ export const GetStartedDialog = ({ isOpen, setIsOpen, hasRoomCode, setHasRoomCod
         }
 
         if (!roomId) {
+            const roomId = Math.random().toString(36).substring(2, 8).toUpperCase();
             window.location.href = `http://game.ayushman.blog/room/${roomId}?username=${encodeURIComponent(username)}`;
             return;
         }
